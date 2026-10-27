@@ -40,6 +40,8 @@ import {
   Camera,
   QrCode,
   Archive,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import CardModal from './CardModal.tsx';
 import HospitalityInviteModal from './HospitalityInviteModal.tsx';
@@ -149,6 +151,24 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard, onL
   const [archivedCards, setArchivedCards] = useState<Card[]>([]);
   const [wallpaperMode, setWallpaperMode] = useState<'repeat' | 'cover'>('repeat');
   const [selectedWallpaperFile, setSelectedWallpaperFile] = useState<File | null>(null);
+
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem('hospitalist_dark_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('hospitalist_dark_mode', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Quick Card Add state per column
   const [addingCardInListId, setAddingCardInListId] = useState<string | null>(null);
@@ -1055,14 +1075,14 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard, onL
   }
 
   return (
-    <div className="min-h-screen text-slate-800 flex flex-col" style={boardBgStyle}>
+    <div className={isDarkMode ? "min-h-screen text-slate-100 flex flex-col selection:bg-teal-500 selection:text-white" : "min-h-screen text-slate-800 flex flex-col"} style={boardBgStyle}>
       {/* Toast Notification Container */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* ========================================================================= */}
       {/* TOP-RIGHT TOOLBAR & HEADER */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-30 bg-white/95 border-b border-slate-200 backdrop-blur-md px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 shadow-xs">
+      <header className={isDarkMode ? "sticky top-0 z-30 bg-slate-900/95 border-b border-slate-800 backdrop-blur-md px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 shadow-sm" : "sticky top-0 z-30 bg-white/95 border-b border-slate-200 backdrop-blur-md px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 shadow-xs"}>
         {/* Left: Back & Board Title */}
         <div className="flex items-center gap-3">
           <button
@@ -1205,6 +1225,20 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard, onL
           >
             <Share2 className="w-4 h-4" />
             <span className="hidden sm:inline">Share</span>
+          </button>
+
+          {/* Dark Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className={`p-2 rounded-lg border transition-all cursor-pointer ${
+              isDarkMode
+                ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
+                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
           {/* 4b. Live Activity Feed Trigger */}

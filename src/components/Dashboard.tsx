@@ -22,7 +22,9 @@ import {
   FolderOpen,
   RefreshCw,
   Search,
-  X
+  X,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface User {
@@ -73,6 +75,24 @@ export default function Dashboard({
   const [recentActivities, setRecentActivities] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem('hospitalist_dark_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('hospitalist_dark_mode', String(next));
+      } catch {}
+      return next;
+    });
+  };
   
   const avatarFileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -222,9 +242,9 @@ export default function Dashboard({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
+    <div className={isDarkMode ? "min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-white" : "min-h-screen bg-slate-50 text-slate-800 flex flex-col"}>
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-white/95 border-b border-slate-200 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
+      <header className={isDarkMode ? "sticky top-0 z-30 bg-slate-900/95 border-b border-slate-800 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between" : "sticky top-0 z-30 bg-white/95 border-b border-slate-200 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between"}>
         {/* Brand & Property */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center overflow-hidden p-1 shadow-sm">
@@ -232,15 +252,15 @@ export default function Dashboard({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 tracking-tight text-base sm:text-lg">
+              <span className={isDarkMode ? "font-bold text-white tracking-tight text-base sm:text-lg" : "font-bold text-slate-900 tracking-tight text-base sm:text-lg"}>
                 RoxCrew
               </span>
               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200">
                 Ops Portal
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              <Building2 className="w-3.5 h-3.5 text-teal-600" />
+            <div className={isDarkMode ? "flex items-center gap-1.5 text-xs text-slate-400" : "flex items-center gap-1.5 text-xs text-slate-500"}>
+              <Building2 className="w-3.5 h-3.5 text-teal-500" />
               <span className="truncate max-w-[200px] sm:max-w-xs">{currentUser.company}</span>
             </div>
           </div>
@@ -250,9 +270,9 @@ export default function Dashboard({
         <div className="flex items-center gap-3">
           {/* Quick Demo Switcher (Helps testing Admin vs Manager vs Staff quickly) */}
           {onSwitchUser && (
-            <div className="hidden lg:flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-lg p-1 text-xs">
-              <span className="px-2 text-slate-500 text-[11px] font-medium flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-teal-600" /> Test as:
+            <div className={isDarkMode ? "hidden lg:flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg p-1 text-xs" : "hidden lg:flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-lg p-1 text-xs"}>
+              <span className={isDarkMode ? "px-2 text-slate-400 text-[11px] font-medium flex items-center gap-1" : "px-2 text-slate-500 text-[11px] font-medium flex items-center gap-1"}>
+                <Sparkles className="w-3 h-3 text-teal-500" /> Test as:
               </span>
               <button
                 type="button"
@@ -260,7 +280,7 @@ export default function Dashboard({
                 className={`px-2.5 py-1 rounded-md font-medium transition-all ${
                   currentUser.role === 'Admin/Group Owner'
                     ? 'bg-teal-600 text-white font-semibold shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    : isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-700/60' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
                 Admin
@@ -271,7 +291,7 @@ export default function Dashboard({
                 className={`px-2.5 py-1 rounded-md font-medium transition-all ${
                   currentUser.role === 'Manager'
                     ? 'bg-teal-700 text-white font-semibold shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    : isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-700/60' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
                 Manager
@@ -282,7 +302,7 @@ export default function Dashboard({
                 className={`px-2.5 py-1 rounded-md font-medium transition-all ${
                   currentUser.role === 'Staff'
                     ? 'bg-teal-500 text-white font-semibold shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    : isDarkMode ? 'text-slate-300 hover:text-white hover:bg-slate-700/60' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
                 Staff
@@ -291,7 +311,7 @@ export default function Dashboard({
           )}
 
           {/* User Card */}
-          <div className="flex items-center gap-2.5 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5">
+          <div className={isDarkMode ? "flex items-center gap-2.5 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5" : "flex items-center gap-2.5 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5"}>
             <img
               src={currentUser.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name)}`}
               alt={currentUser.name}
@@ -307,19 +327,33 @@ export default function Dashboard({
               className="hidden"
             />
             <div className="text-left hidden sm:block">
-              <div className="text-xs font-semibold text-slate-900 leading-tight">{currentUser.name}</div>
-              <div className="text-[10px] text-teal-700 font-medium leading-none mt-0.5">
+              <div className={isDarkMode ? "text-xs font-semibold text-slate-100 leading-tight" : "text-xs font-semibold text-slate-900 leading-tight"}>{currentUser.name}</div>
+              <div className="text-[10px] text-teal-400 font-medium leading-none mt-0.5">
                 {currentUser.role}
               </div>
             </div>
           </div>
+
+          {/* Dark Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className={`p-2 rounded-lg border transition-all cursor-pointer ${
+              isDarkMode
+                ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
+                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
 
           {/* Logout */}
           <button
             type="button"
             onClick={onLogout}
             title="Log Out"
-            className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 transition-all cursor-pointer"
+            className={isDarkMode ? "p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all cursor-pointer" : "p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 transition-all cursor-pointer"}
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -476,7 +510,7 @@ export default function Dashboard({
                     <div
                       key={board.id}
                       onClick={() => onSelectBoard(board.id)}
-                      className="group relative bg-white border border-slate-200 hover:border-teal-400 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer flex flex-col justify-between"
+                      className={isDarkMode ? "group relative bg-slate-900 border border-slate-800 hover:border-teal-500 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg cursor-pointer flex flex-col justify-between" : "group relative bg-white border border-slate-200 hover:border-teal-400 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer flex flex-col justify-between"}
                     >
                       <div>
                         {/* Theme / Wallpaper Header Thumbnail Preview */}
@@ -491,21 +525,21 @@ export default function Dashboard({
                         </div>
 
                         <div className="p-5 pb-0">
-                          <h4 className="font-bold text-slate-900 text-base group-hover:text-teal-700 transition-colors line-clamp-1">
+                          <h4 className={isDarkMode ? "font-bold text-slate-100 text-base group-hover:text-teal-400 transition-colors line-clamp-1" : "font-bold text-slate-900 text-base group-hover:text-teal-700 transition-colors line-clamp-1"}>
                             {board.title}
                           </h4>
-                          <p className="text-xs text-slate-600 mt-1 line-clamp-2 min-h-[32px]">
+                          <p className={isDarkMode ? "text-xs text-slate-400 mt-1 line-clamp-2 min-h-[32px]" : "text-xs text-slate-600 mt-1 line-clamp-2 min-h-[32px]"}>
                             {board.description || 'Kanban operations & crew tracking.'}
                           </p>
                         </div>
                       </div>
 
-                      <div className="p-5 pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                      <div className={isDarkMode ? "p-5 pt-4 mt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400" : "p-5 pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500"}>
                         <span className="flex items-center gap-1 text-[11px]">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
                           {new Date(board.created_at).toLocaleDateString()}
                         </span>
-                        <span className="text-teal-600 font-semibold text-xs flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        <span className="text-teal-500 font-semibold text-xs flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                           Open Board &rarr;
                         </span>
                       </div>

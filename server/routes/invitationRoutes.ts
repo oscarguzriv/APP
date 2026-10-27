@@ -84,6 +84,13 @@ invitationRouter.post('/', requireAuth, (req: AuthenticatedRequest, res: Respons
       return;
     }
 
+    // Tenant ownership check: Manager/Admin must belong to the same company/tenant as the board creator
+    const boardCreator = db.findUserById(board.created_by);
+    if (!boardCreator || boardCreator.company.toLowerCase() !== user.company.toLowerCase()) {
+      res.status(403).json({ success: false, error: 'Cross-tenant access denied. You can only manage invitations for boards within your own tenant/company.' });
+      return;
+    }
+
     // Permission check: Admins, Managers, or users with Board Admin membership on this board
     const boardRole = db.getBoardMembership(board_id, user.id);
     const isGlobalManagerOrAdmin = user.role === 'Admin/Group Owner' || user.role === 'Manager';

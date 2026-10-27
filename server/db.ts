@@ -410,7 +410,7 @@ class DatabaseStore {
     return this.cardActivityLogs.filter((log) => log.board_id === boardId);
   }
 
-  public createList(params: { board_id: string; title: string; position?: number }): List {
+  public createList(params: { board_id: string; title: string; position?: number; created_by?: string }): List {
     const listId = this.generateId();
     const existingLists = Array.from(this.lists.values()).filter(l => l.board_id === params.board_id && !l.is_archived);
     const position = params.position !== undefined ? params.position : (existingLists.length > 0 ? Math.max(...existingLists.map(l => l.position)) + 1000 : 1000);
@@ -422,6 +422,7 @@ class DatabaseStore {
       title: params.title.trim() || 'New List',
       position,
       is_archived: false,
+      created_by: params.created_by || '',
       created_at: now,
       updated_at: now,
     };
@@ -448,7 +449,7 @@ class DatabaseStore {
     if (!list) return false;
     for (const card of Array.from(this.cards.values())) {
       if (card.list_id === listId) {
-        this.deleteCard(card.id);
+        this.deleteCard(card.id, list.created_by || 'system');
       }
     }
     const deleted = this.lists.delete(listId);
@@ -531,7 +532,7 @@ class DatabaseStore {
           list_id: targetListId,
           title: tCard.name || 'Card',
           description: tCard.desc || '',
-          priority: 'medium',
+          priority: 'normal',
           due_date: tCard.due || null,
           created_by: userId,
         });
@@ -707,6 +708,9 @@ class DatabaseStore {
 
     const oldList = this.lists.get(card.list_id);
     const newList = this.lists.get(params.targetListId);
+    if (!newList || newList.board_id !== card.board_id) {
+      throw new Error('Relational Integrity Violation: Target list does not belong to the same board as the card.');
+    }
 
     const oldListTitle = oldList?.title || 'Unknown';
     const newListTitle = newList?.title || 'Unknown';

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { db } from '../db.ts';
 import {
   hashPassword,
@@ -17,6 +18,15 @@ import fs from 'fs';
 
 export const authRouter = Router();
 
+// Strict rate limiter for authentication endpoints (signup/login)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15, // limit each IP to 15 login/signup attempts per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many authentication attempts from this IP, please try again later.' },
+});
+
 const avatarUploadStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     const uploadPath = path.resolve(process.cwd(), 'public', 'uploads');
@@ -34,13 +44,13 @@ const avatarUploadStorage = multer.diskStorage({
 
 const avatarUpload = multer({
   storage: avatarUploadStorage,
-  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB max
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
   fileFilter: (_req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png'];
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
     if (allowed.includes(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
-      cb(new Error('Only PNG and JPG images under 1MB are permitted.'));
+      cb(new Error('Only PNG, JPG, and WEBP images under 5MB are permitted.'));
     }
   },
 });
@@ -51,7 +61,7 @@ const avatarUpload = multer({
  * Explicitly guards against duplicate emails.
  * Supports auto-joining via inviteToken (Hospitality QR Code / Link onboarding).
  */
-authRouter.post('/signup', async (req: Request, res: Response) => {
+authRouter.post('/signup', authLimiter, async (req: Request, res: Response) => {
   try {
     const { name, email, password, company, role, inviteToken } = req.body;
 
@@ -156,7 +166,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
       message: 'Account created successfully.',
       user: toSafeUser(newUser),
       joined_board_id: validInvite?.board_id || null,
-      token, // Also return for client convenience or mobile headers
+      token,
     });
   } catch (error: any) {
     if (error.code === 'DUPLICATE_EMAIL') {
@@ -176,7 +186,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
  * POST /api/auth/login
  * Verifies credentials, issues JWT and sets HttpOnly cookie.
  */
-authRouter.post('/login', async (req: Request, res: Response) => {
+authRouter.post('/login', authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -245,37 +255,22 @@ authRouter.get('/me', requireAuth, (req: AuthenticatedRequest, res: Response) =>
 });
 
 /**
- * GET /api/auth/demo-users
- * Returns list of active accounts for Instant Quick Login switcher,
- * including any newly created users by admins/managers.
- */
-authRouter.get('/demo-users', (_req: Request, res: Response) => {
-  const users = Array.from(db.users.values())
-    .filter((u) => u.is_active)
-    .map((u) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      company: u.company,
-      avatar_url: u.avatar_url,
-    }));
-  res.json({ success: true, users });
-});
-
-/**
  * POST /api/auth/avatar
- * Uploads user profile photo (PNG/JPG, max 1MB).
+ * Uploads user profile photo (PNG/JPG/WEBP, max 5MB).
  */
 authRouter.post('/avatar', requireAuth, avatarUpload.single('avatar'), (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.file) {
-      res.status(400).json({ success: false, error: 'No image file uploaded or file exceeds 1MB limit.' });
+      res.status(400).json({ success: false, error: 'No image file uploaded or file exceeds 5MB limit.' });
       return;
     }
 
     const avatarUrl = `/uploads/${req.file.filename}`;
-    const user = req.user!;
+    const user = db.users.get(req.user!.id);
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found.' });
+      return;
+    }
     user.avatar_url = avatarUrl;
     user.updated_at = new Date().toISOString();
     db.users.set(user.id, user);
@@ -284,7 +279,6 @@ authRouter.post('/avatar', requireAuth, avatarUpload.single('avatar'), (req: Aut
     res.json({ success: true, user: toSafeUser(user) });
   } catch (error: any) {
     console.error('Avatar upload error:', error);
-    res.status(400).json({ success: false, error: error.message || 'Failed to upload profile photo. Ensure file is PNG/JPG under 1MB.' });
+    res.status(400).json({ success: false, error: error.message || 'Failed to upload profile photo. Ensure file is PNG/JPG under 5MB.' });
   }
 });
-

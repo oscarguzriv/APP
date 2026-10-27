@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -1092,11 +1092,7 @@ boardRouter.post('/cards/:id/images', upload.array('images', 5), (req: Authentic
 boardRouter.delete('/cards/:id/images', (req: AuthenticatedRequest, res: Response) => {
   try {
     const cardId = req.params.id;
-    const { imagePath } = req.body;
-    if (!imagePath) {
-      res.status(400).json({ success: false, error: 'imagePath is required.' });
-      return;
-    }
+    const { imageIndex, imagePath } = req.body;
 
     const card = db.cards.get(cardId);
     if (!card) {
@@ -1110,9 +1106,26 @@ boardRouter.delete('/cards/:id/images', (req: AuthenticatedRequest, res: Respons
       return;
     }
 
+    const images = Array.isArray(card.image_paths) ? card.image_paths : [];
+    let resolvedPath: string | undefined = undefined;
+
+    if (typeof imageIndex === 'number' && imageIndex >= 0 && imageIndex < images.length) {
+      resolvedPath = images[imageIndex];
+    } else if (typeof imagePath === 'string') {
+      const matched = images.find((p) => p === imagePath);
+      if (matched) {
+        resolvedPath = matched;
+      }
+    }
+
+    if (!resolvedPath) {
+      res.status(400).json({ success: false, error: 'Valid image attachment not found on this authorized card.' });
+      return;
+    }
+
     // Attempt to delete physical file if within public uploads
-    if (typeof imagePath === 'string' && imagePath.startsWith('/uploads/')) {
-      const filename = path.basename(imagePath);
+    if (resolvedPath.startsWith('/uploads/')) {
+      const filename = path.basename(resolvedPath);
       const fullPath = path.resolve(process.cwd(), 'public', 'uploads', filename);
       if (fs.existsSync(fullPath)) {
         try {
@@ -1123,7 +1136,7 @@ boardRouter.delete('/cards/:id/images', (req: AuthenticatedRequest, res: Respons
       }
     }
 
-    const updatedCard = db.removeCardImage(cardId, imagePath, req.user!.id);
+    const updatedCard = db.removeCardImage(cardId, resolvedPath, req.user!.id);
     if (updatedCard) {
       broadcastCardUpdated(card.board_id, updatedCard);
       const latestLog = db.getActivityLogsForBoard(card.board_id)[0];

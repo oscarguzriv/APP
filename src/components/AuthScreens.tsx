@@ -41,19 +41,11 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [demoUsers, setDemoUsers] = useState<any[]>([]);
-
-  // Load available demo users dynamically (includes newly created users)
-  React.useEffect(() => {
-    apiFetch('/api/auth/demo-users')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.users && Array.isArray(data.users)) {
-          setDemoUsers(data.users);
-        }
-      })
-      .catch((err) => console.error('Failed to load demo accounts:', err));
-  }, []);
+  const [demoUsers] = useState([
+    { email: 'admin@test.com', name: 'Group Admin', role: 'Admin/Group Owner' },
+    { email: 'manager@grandregency.com', name: 'Shift Manager', role: 'Manager' },
+    { email: 'staff@grandregency.com', name: 'Station Staff', role: 'Staff' },
+  ]);
 
   // Quick Demo Login Handler
   const handleQuickDemoLogin = (email: string) => {
