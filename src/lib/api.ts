@@ -1,5 +1,5 @@
 /**
- * Central API Client for PrimeShift
+ * Central API Client for MyShift
  * Automatically handles credentials, Bearer tokens, and iframe session persistence.
  */
 
@@ -48,8 +48,10 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
   const token = getStoredToken();
   const user = getStoredUser();
 
+  const isFormData = options.body instanceof FormData;
+
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string> || {}),
   };
 

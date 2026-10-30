@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { apiFetch, setStoredToken, setStoredUser } from '../lib/api.ts';
+import Footer from './Footer.tsx';
 import { 
   Building2, 
   Mail, 
@@ -40,6 +41,11 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [demoUsers] = useState([
+    { email: 'admin@test.com', name: 'Group Admin', role: 'Admin/Group Owner' },
+    { email: 'manager@grandregency.com', name: 'Shift Manager', role: 'Manager' },
+    { email: 'staff@grandregency.com', name: 'Station Staff', role: 'Staff' },
+  ]);
 
   // Quick Demo Login Handler
   const handleQuickDemoLogin = (email: string) => {
@@ -123,24 +129,24 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-center items-center px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between items-center px-4 py-8 sm:px-6 lg:px-8">
       {/* Background Soft Glow Accents */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-500/5 blur-[120px] rounded-full" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-teal-600/5 blur-[100px] rounded-full" />
       </div>
 
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md my-auto">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-600/20 mb-3">
-            <ChefHat className="w-8 h-8" />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200 shadow-lg shadow-teal-600/10 mb-3 overflow-hidden p-1.5">
+            <img src="/assets/aistudio/Rox_R_aa42d01f.png" alt="MyShift Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center justify-center gap-2">
-            PrimeShift <span className="text-xs px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold border border-teal-200">Ops Kanban</span>
+            RoxCrew <span className="text-xs px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold border border-teal-200">Ops Kanban</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Mobile-First Operations & Shift Management
+            Mobile-First Crew & Task Operations
           </p>
         </div>
 
@@ -224,7 +230,7 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
                     required
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="chef@grandregency.com"
+                    placeholder="admin@test.com"
                     className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
@@ -263,7 +269,7 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
-                    <span>Log In to Shift</span>
+                    <span>Log In to RoxCrew</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -320,30 +326,13 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">
-                  Hospitality Company / Property
-                </label>
-                <div className="relative">
-                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    value={signupCompany}
-                    onChange={(e) => setSignupCompany(e.target.value)}
-                    placeholder="Grand Regency Hotel & Resort"
-                    className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">
                   Initial Role
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'Admin/Group Owner', label: 'Admin', desc: 'Oversee all company boards' },
-                    { id: 'Manager', label: 'Manager', desc: 'Oversee all company boards' },
-                    { id: 'Staff', label: 'Staff', desc: 'Create & join shift boards' },
+                    { id: 'Admin/Group Owner', label: 'Admin', desc: 'Oversee company boards' },
+                    { id: 'Manager', label: 'Manager', desc: 'Oversee company boards' },
+                    { id: 'Staff', label: 'Staff', desc: 'Join & collaborate' },
                   ].map((r) => (
                     <button
                       key={r.id}
@@ -361,6 +350,30 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
                   ))}
                 </div>
               </div>
+
+              {signupRole === 'Admin/Group Owner' ? (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">
+                    Organization / Company Name
+                  </label>
+                  <div className="relative">
+                    <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={signupCompany}
+                      onChange={(e) => setSignupCompany(e.target.value)}
+                      placeholder="Grand Regency Hotel & Resort"
+                      className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl text-teal-800 text-xs flex items-start gap-2">
+                  <Building2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                  <span>Your company workspace will be automatically matched to your organization based on your work email domain.</span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">
@@ -404,52 +417,7 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
             </form>
           )}
 
-          {/* Quick Demo Credentials Switcher for Evaluation */}
-          <div className="mt-8 pt-6 border-t border-slate-200">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-teal-600" />
-              <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Instant Demo Logins
-              </span>
-            </div>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('admin@grandregency.com')}
-                className="w-full text-left px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 hover:border-teal-400 hover:bg-teal-50/40 transition-all flex items-center justify-between text-xs group"
-              >
-                <div>
-                  <span className="font-semibold text-teal-700">Admin/Owner</span>
-                  <span className="text-slate-600 ml-2">Chef Marcus (Grand Regency)</span>
-                </div>
-                <span className="text-[11px] text-slate-400 group-hover:text-teal-600 font-medium">Fill &rarr;</span>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('manager@grandregency.com')}
-                className="w-full text-left px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 hover:border-teal-400 hover:bg-teal-50/40 transition-all flex items-center justify-between text-xs group"
-              >
-                <div>
-                  <span className="font-semibold text-blue-700">Manager</span>
-                  <span className="text-slate-600 ml-2">Elena Rostova</span>
-                </div>
-                <span className="text-[11px] text-slate-400 group-hover:text-blue-600 font-medium">Fill &rarr;</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('staff@grandregency.com')}
-                className="w-full text-left px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 hover:border-teal-400 hover:bg-teal-50/40 transition-all flex items-center justify-between text-xs group"
-              >
-                <div>
-                  <span className="font-semibold text-emerald-700">Staff</span>
-                  <span className="text-slate-600 ml-2">Carlos Mendez</span>
-                </div>
-                <span className="text-[11px] text-slate-400 group-hover:text-emerald-600 font-medium">Fill &rarr;</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Security badge footer */}
@@ -458,6 +426,8 @@ export default function AuthScreens({ onAuthSuccess }: AuthScreensProps) {
           <span>Encrypted Session • HttpOnly JWT Authentication</span>
         </p>
       </div>
+
+      <Footer className="w-full mt-12" />
     </div>
   );
 }

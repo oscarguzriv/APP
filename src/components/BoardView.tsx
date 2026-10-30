@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../lib/api.ts';
+import Footer from './Footer.tsx';
+import NotificationCenter from './NotificationCenter.tsx';
 import { io, Socket } from 'socket.io-client';
 import {
   ChevronLeft,
@@ -36,8 +38,15 @@ import {
   History,
   UserPlus,
   Shield,
+  Camera,
+  QrCode,
+  Archive,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import CardModal from './CardModal.tsx';
+import HospitalityInviteModal from './HospitalityInviteModal.tsx';
+import { ToastContainer, ToastMessage } from './Toast.tsx';
 
 interface SafeUser {
   id: string;
@@ -90,6 +99,7 @@ interface Card {
   assigned_to?: string | null;
   google_event_id?: string | null;
   is_archived: boolean;
+  image_paths?: string[];
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -104,11 +114,13 @@ interface Card {
 
 interface BoardViewProps {
   boardId: string;
+  initialCardId?: string | null;
   currentUser: SafeUser;
   onBackToDashboard: () => void;
+  onLogout?: () => void;
 }
 
-export default function BoardView({ boardId, currentUser, onBackToDashboard }: BoardViewProps) {
+export default function BoardView({ boardId, initialCardId, currentUser, onBackToDashboard, onLogout }: BoardViewProps) {
   // Board & State Data
   const [board, setBoard] = useState<any>(null);
   const [userRole, setUserRole] = useState<'Board Admin' | 'Member' | 'Viewer'>('Member');
@@ -135,6 +147,30 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isWipModalOpen, setIsWipModalOpen] = useState(false);
   const [isLabelsModalOpen, setIsLabelsModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isBackgroundModalOpen, setIsBackgroundModalOpen] = useState(false);
+  const [isArchivedCardsModalOpen, setIsArchivedCardsModalOpen] = useState(false);
+  const [archivedCards, setArchivedCards] = useState<Card[]>([]);
+  const [wallpaperMode, setWallpaperMode] = useState<'repeat' | 'cover'>('repeat');
+  const [selectedWallpaperFile, setSelectedWallpaperFile] = useState<File | null>(null);
+
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem('hospitalist_dark_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('hospitalist_dark_mode', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Quick Card Add state per column
   const [addingCardInListId, setAddingCardInListId] = useState<string | null>(null);
@@ -148,6 +184,10 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
   const [isEditingBoardTitle, setIsEditingBoardTitle] = useState(false);
   const [boardTitleInput, setBoardTitleInput] = useState('');
 
+  // Board description editing
+  const [isEditingBoardDescription, setIsEditingBoardDescription] = useState(false);
+  const [boardDescriptionInput, setBoardDescriptionInput] = useState('');
+
   // Drag-and-drop state
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   const [dragOverListId, setDragOverListId] = useState<string | null>(null);
@@ -156,7 +196,59 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>('all');
+  const [selectedLabelFilter, setSelectedLabelFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
+
+  // Column management states & handlers
+  const [isAddingColumn, setIsAddingColumn] = useState(false);
+  const [newColumnTitle, setNewColumnTitle] = useState('');
+
+  const isBoardCreator = board?.created_by === currentUser.id;
+  const canEditColumns = isBoardCreator || userRole === 'Board Admin' || currentUser.role === 'Admin/Group Owner' || currentUser.role === 'Manager';
+  const canManageColumns = currentUser.role === 'Admin/Group Owner' || currentUser.role === 'Manager' || userRole === 'Board Admin' || canEditColumns;
+
+  const handleAddColumn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newColumnTitle.trim() || !canManageColumns) return;
+    try {
+      const res = await apiFetch(`/api/boards/${boardId}/lists`, {
+        method: 'POST',
+        body: JSON.stringify({ title: newColumnTitle.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLists((prev) => [...prev, data.list]);
+        setNewColumnTitle('');
+        setIsAddingColumn(false);
+        showToast({ title: 'Column Added', message: `"${data.list.title}" column created.`, type: 'success' });
+      } else {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to create column');
+      }
+    } catch (err: any) {
+      showToast({ title: 'Error', message: err.message || 'Could not add column.', type: 'error' });
+    }
+  };
+
+  const handleDeleteColumn = async (listId: string) => {
+    if (!canManageColumns) return;
+    if (!confirm('Are you sure you want to delete this column and all tasks inside it?')) return;
+    try {
+      const res = await apiFetch(`/api/boards/${boardId}/lists/${listId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setLists((prev) => prev.filter((l) => l.id !== listId));
+        setCards((prev) => prev.filter((c) => c.list_id !== listId));
+        showToast({ title: 'Column Deleted', message: 'Column removed from board.', type: 'success' });
+      } else {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to delete column');
+      }
+    } catch (err: any) {
+      showToast({ title: 'Error', message: err.message || 'Could not delete column.', type: 'error' });
+    }
+  };
 
   // WIP Limits (in-memory per column title)
   const [wipLimits, setWipLimits] = useState<Record<string, number>>({
@@ -198,9 +290,25 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
   const [newUserRole, setNewUserRole] = useState<'Admin/Group Owner' | 'Manager' | 'Staff'>('Staff');
   const [newUserBoardRole, setNewUserBoardRole] = useState<'Board Admin' | 'Member' | 'Viewer'>('Member');
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserSuccess, setNewUserSuccess] = useState<string | null>(null);
   const [confirmDeleteLabelId, setConfirmDeleteLabelId] = useState<string | null>(null);
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
+  const [isCreatingCard, setIsCreatingCard] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // Toast Notification Helper
+  const showToast = (toast: Omit<ToastMessage, 'id'>) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4200);
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   // =========================================================================
   // INITIAL DATA & WEBSOCKET SETUP
@@ -217,16 +325,27 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
       setUserRole(data.userRole || 'Member');
       setLists(data.lists || []);
       setCards(data.cards || []);
+      setArchivedCards(data.archivedCards || []);
       setMembers(data.members || []);
       setLabels(data.labels || []);
       setActivityLogs(data.activityLogs || []);
       setBoardTitleInput(data.board?.title || '');
+      setBoardDescriptionInput(data.board?.description || '');
     } catch (err) {
       console.error('Error fetching board:', err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (initialCardId && cards.length > 0) {
+      const targetCard = cards.find((c) => c.id === initialCardId);
+      if (targetCard) {
+        setActiveCardModal(targetCard);
+      }
+    }
+  }, [initialCardId, cards]);
 
   useEffect(() => {
     fetchBoardData();
@@ -312,6 +431,27 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
             .map((l) => updatedLabels.find((nl) => nl.id === l.id) || l),
         };
       });
+    });
+
+    // Real-Time Board Members Updated
+    socket.on('members:updated', ({ member, user }: any) => {
+      if (user && member) {
+        const memberWithUser = {
+          ...member,
+          user_name: user.name,
+          user_email: user.email,
+          user_role: user.role,
+          user_avatar: user.avatar_url,
+        };
+        setMembers((prev) => {
+          if (prev.some((m) => m.user_id === user.id)) {
+            return prev.map((m) => m.user_id === user.id ? memberWithUser : m);
+          }
+          return [...prev, memberWithUser];
+        });
+      } else {
+        fetchBoardData();
+      }
     });
 
     return () => {
@@ -466,9 +606,75 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
     }
   };
 
+  // Restore archived card
+  const handleRestoreCard = async (cardId: string) => {
+    try {
+      const res = await apiFetch(`/api/cards/${cardId}/unarchive`, { method: 'PATCH' });
+      if (res.ok) {
+        const data = await res.json();
+        setArchivedCards((prev) => prev.filter((c) => c.id !== cardId));
+        if (data.card) {
+          setCards((prev) => [...prev, data.card]);
+        }
+        showToast({ title: 'Task Restored', message: data.message || 'Task returned to board.', type: 'success' });
+      }
+    } catch (err) {
+      console.error('Failed to unarchive card:', err);
+    }
+  };
+
+  const handleUpdateBackground = async (colorOrGradient: string) => {
+    try {
+      const res = await apiFetch(`/api/boards/${boardId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ background_value: colorOrGradient }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBoard(data.board);
+        showToast({ title: 'Theme Updated', message: 'Board background updated instantly.', type: 'success' });
+        setIsBackgroundModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Failed to update background:', err);
+    }
+  };
+
+  const uploadWallpaperFile = async (file: File, mode: 'cover' | 'repeat') => {
+    if (file.size > 1 * 1024 * 1024) {
+      showToast({ title: 'File Too Large', message: 'Wallpaper image must be under 1MB.', type: 'error' });
+      return;
+    }
+    const formData = new FormData();
+    formData.append('wallpaper', file);
+    formData.append('mode', mode);
+
+    try {
+      const res = await apiFetch(`/api/boards/${boardId}/wallpaper`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBoard(data.board);
+        showToast({ title: 'Wallpaper Updated', message: 'Board wallpaper successfully uploaded.', type: 'success' });
+        setIsBackgroundModalOpen(false);
+        setSelectedWallpaperFile(null);
+      } else {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to upload wallpaper');
+      }
+    } catch (err: any) {
+      showToast({ title: 'Upload Error', message: err.message || 'Could not upload wallpaper.', type: 'error' });
+    }
+  };
+
   // Quick Card Create in List
   const handleCreateCard = async (listId: string) => {
-    if (!newCardTitle.trim()) return;
+    if (isCreatingCard || !newCardTitle.trim()) return;
+
+    setIsCreatingCard(true);
+    const titleToCreate = newCardTitle.trim();
 
     try {
       const res = await apiFetch('/api/cards/new', {
@@ -476,22 +682,72 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
         body: JSON.stringify({
           board_id: boardId,
           list_id: listId,
-          title: newCardTitle.trim(),
+          title: titleToCreate,
           socketId: socketRef.current?.id,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
+        const createdCard = data.card;
         setCards((prev) => {
-          if (prev.some((c) => c.id === data.card.id)) return prev;
-          return [...prev, data.card];
+          if (prev.some((c) => c.id === createdCard.id)) return prev;
+          return [...prev, createdCard];
         });
         setNewCardTitle('');
         setAddingCardInListId(null);
+
+        const listObj = lists.find((l) => l.id === listId);
+        showToast({
+          type: 'success',
+          title: 'Task Created',
+          message: `"${createdCard.title}" added to ${listObj?.title || 'column'}.`,
+        });
+      } else {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to create task');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create card:', err);
+      showToast({
+        type: 'error',
+        title: 'Task Creation Failed',
+        message: err.message || 'Could not create task. Please try again.',
+      });
+    } finally {
+      setIsCreatingCard(false);
+    }
+  };
+
+  // Delete Card Permanently
+  const handleDeleteCard = async (cardId: string, cardTitle: string) => {
+    try {
+      const res = await apiFetch(`/api/cards/${cardId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete task');
+      }
+
+      setCards((prev) => prev.filter((c) => c.id !== cardId));
+      if (activeCardModal && activeCardModal.id === cardId) {
+        setActiveCardModal(null);
+      }
+
+      showToast({
+        type: 'delete',
+        title: 'Task Deleted',
+        message: `"${cardTitle}" has been removed from the board.`,
+      });
+    } catch (err: any) {
+      console.error('Failed to delete card:', err);
+      showToast({
+        type: 'error',
+        title: 'Delete Failed',
+        message: err.message || 'Could not delete task',
+      });
     }
   };
 
@@ -505,12 +761,49 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
         method: 'PATCH',
         body: JSON.stringify({ title: boardTitleInput.trim() }),
       });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        setBoard(data.board);
+        if (res.ok && data.success) {
+          setBoard(data.board);
+          showToast({ title: 'Title Updated', message: 'Board title saved successfully.', type: 'success' });
+        } else {
+          throw new Error(data.error || 'Failed to update board title.');
+        }
+      } else {
+        throw new Error('Server returned an invalid response. You may require Board Admin permissions.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to update board title:', err);
+      showToast({ title: 'Error', message: err.message || 'Could not update board title.', type: 'error' });
+    }
+  };
+
+  // Update Board Description
+  const handleSaveBoardDescription = async () => {
+    setIsEditingBoardDescription(false);
+    if (boardDescriptionInput === board?.description) return;
+
+    try {
+      const res = await apiFetch(`/api/boards/${boardId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ description: boardDescriptionInput.trim() }),
+      });
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setBoard(data.board);
+          showToast({ title: 'Description Updated', message: 'Board description saved successfully.', type: 'success' });
+        } else {
+          throw new Error(data.error || 'Failed to update description.');
+        }
+      } else {
+        throw new Error('Server returned an invalid response. You may require Board Admin permissions.');
+      }
+    } catch (err: any) {
+      console.error('Failed to update board description:', err);
+      showToast({ title: 'Error', message: err.message || 'Could not update description.', type: 'error' });
     }
   };
 
@@ -531,6 +824,14 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
       }
       setIsShareModalOpen(false);
       setInviteUserId('');
+
+      const invitedUser = companyDirectory.find((u) => u.id === inviteUserId);
+      showToast({
+        type: 'success',
+        title: 'Member Added to Board',
+        message: `${invitedUser?.name || 'User'} has been invited as ${inviteRole}.`,
+      });
+
       fetchBoardData(); // refresh member list
     } catch (err: any) {
       console.error('Failed to invite member:', err);
@@ -550,6 +851,8 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
     setInviteError(null);
     setNewUserSuccess(null);
 
+    const initialPassword = newUserPassword.trim() || 'Password123!';
+
     try {
       const res = await apiFetch(`/api/boards/${boardId}/members/new-user`, {
         method: 'POST',
@@ -558,6 +861,7 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
           email: newUserEmail.trim(),
           role: newUserRole,
           board_role: newUserBoardRole,
+          password: initialPassword,
         }),
       });
 
@@ -566,23 +870,44 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
         throw new Error(data.error || 'Failed to create user and add to board');
       }
 
-      setNewUserSuccess(data.message || `User ${newUserName} created and added to board.`);
+      const createdUser = data.user;
+      const createdMember = data.member;
+
+      // Immediately update local members state without requiring hard refresh or logout
+      if (createdUser && createdMember) {
+        const memberWithUser = {
+          ...createdMember,
+          user_name: createdUser.name,
+          user_email: createdUser.email,
+          user_role: createdUser.role,
+          user_avatar: createdUser.avatar_url,
+        };
+        setMembers((prev) => {
+          if (prev.some((m) => m.user_id === createdUser.id)) {
+            return prev.map((m) => m.user_id === createdUser.id ? memberWithUser : m);
+          }
+          return [...prev, memberWithUser];
+        });
+
+        setCompanyDirectory((prev) => {
+          if (prev.some((u) => u.id === createdUser.id)) return prev;
+          return [...prev, createdUser];
+        });
+      }
+
       setNewUserName('');
       setNewUserEmail('');
+      setNewUserPassword('');
+      setIsShareModalOpen(false);
+
+      // Trigger soft notification toast!
+      showToast({
+        type: 'user',
+        title: 'User Added to System & Board',
+        message: `${createdUser.name} (${createdUser.role}) saved. Initial Password: ${initialPassword}`,
+      });
+
       fetchBoardData();
-
-      // Refresh company directory in background
-      apiFetch('/api/users/directory')
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.users) setCompanyDirectory(d.users);
-        })
-        .catch(console.error);
-
-      setTimeout(() => {
-        setIsShareModalOpen(false);
-        setNewUserSuccess(null);
-      }, 1200);
     } catch (err: any) {
       console.error('Failed to create user:', err);
       setInviteError(err.message || 'Failed to create user');
@@ -618,12 +943,12 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
     if (!cardId) return;
 
     const movingCard = cards.find((c) => c.id === cardId);
-    if (!movingCard || movingCard.list_id === targetListId) {
+    if (!movingCard) {
       return;
     }
 
-    // Compute target position at bottom of target list
-    const cardsInTarget = cards.filter((c) => c.list_id === targetListId);
+    // Compute target position at bottom of target list (or within same list)
+    const cardsInTarget = cards.filter((c) => c.list_id === targetListId && c.id !== cardId);
     const maxPos = cardsInTarget.length > 0 ? Math.max(...cardsInTarget.map((c) => c.position)) : 0;
     const newPosition = maxPos + 65535;
 
@@ -645,6 +970,73 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
     );
 
     // Call backend
+    try {
+      const res = await apiFetch(`/api/cards/${cardId}/move`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          targetListId,
+          newPosition,
+          socketId: socketRef.current?.id,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCards((prev) => prev.map((c) => (c.id === cardId ? data.card : c)));
+      }
+    } catch (err) {
+      console.error('Failed to move card:', err);
+    }
+  };
+
+  const handleCardDropOnCard = async (e: React.DragEvent, targetCard: Card, targetListId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const cardId = draggedCardId || e.dataTransfer.getData('text/plain');
+    setDraggedCardId(null);
+    setDragOverListId(null);
+
+    if (!cardId || cardId === targetCard.id) return;
+
+    const movingCard = cards.find((c) => c.id === cardId);
+    if (!movingCard) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const isAfter = e.clientY > rect.top + rect.height / 2;
+
+    const listCardsSorted = cards
+      .filter((c) => c.list_id === targetListId && c.id !== cardId)
+      .sort((a, b) => a.position - b.position);
+
+    const targetIdx = listCardsSorted.findIndex((c) => c.id === targetCard.id);
+    if (targetIdx === -1) return;
+
+    let newPosition = targetCard.position;
+    if (isAfter) {
+      const nextCard = listCardsSorted[targetIdx + 1];
+      newPosition = nextCard ? (targetCard.position + nextCard.position) / 2 : targetCard.position + 65535;
+    } else {
+      const prevCard = listCardsSorted[targetIdx - 1];
+      newPosition = prevCard ? (prevCard.position + targetCard.position) / 2 : targetCard.position / 2;
+    }
+
+    const targetList = lists.find((l) => l.id === targetListId);
+    const isMovingToDone = targetList?.title.toLowerCase() === 'done';
+
+    // Optimistically update UI
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === cardId
+          ? {
+              ...c,
+              list_id: targetListId,
+              position: newPosition,
+              is_completed: isMovingToDone ? true : c.is_completed,
+            }
+          : c
+      )
+    );
+
     try {
       const res = await apiFetch(`/api/cards/${cardId}/move`, {
         method: 'PATCH',
@@ -704,10 +1096,25 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
     if (selectedPriorityFilter !== 'all' && card.priority !== selectedPriorityFilter) {
       return false;
     }
+    if (selectedLabelFilter !== 'all') {
+      const hasLbl = card.labels?.some((l: any) => l.id === selectedLabelFilter);
+      if (!hasLbl) return false;
+    }
     if (selectedStatusFilter === 'completed' && !card.is_completed) return false;
     if (selectedStatusFilter === 'pending' && card.is_completed) return false;
     return true;
   });
+
+  const bgVal = board?.background_value || '#0f172a';
+  const isImageBg = bgVal.startsWith('/uploads/') || bgVal.startsWith('http');
+  const boardBgStyle = isImageBg ? {
+    backgroundImage: `url(${bgVal})`,
+    backgroundSize: board?.background_style === 'repeat' ? '250px 250px' : 'cover',
+    backgroundRepeat: board?.background_style === 'repeat' ? 'repeat' : 'no-repeat',
+    backgroundPosition: 'top left',
+  } : {
+    background: bgVal,
+  };
 
   if (isLoading) {
     return (
@@ -721,11 +1128,14 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
+    <div className={isDarkMode ? "min-h-screen text-slate-100 flex flex-col selection:bg-teal-500 selection:text-white" : "min-h-screen text-slate-800 flex flex-col"} style={boardBgStyle}>
+      {/* Toast Notification Container */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       {/* ========================================================================= */}
       {/* TOP-RIGHT TOOLBAR & HEADER */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-30 bg-white/95 border-b border-slate-200 backdrop-blur-md px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 shadow-xs">
+      <header className={isDarkMode ? "sticky top-0 z-30 bg-slate-900/95 border-b border-slate-800 backdrop-blur-md px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 shadow-sm" : "sticky top-0 z-30 bg-white/95 border-b border-slate-200 backdrop-blur-md px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 shadow-xs"}>
         {/* Left: Back & Board Title */}
         <div className="flex items-center gap-3">
           <button
@@ -746,12 +1156,12 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                 onBlur={handleSaveBoardTitle}
                 onKeyDown={(e) => e.key === 'Enter' && handleSaveBoardTitle()}
                 autoFocus
-                className="bg-white border border-teal-500 rounded-md px-2 py-0.5 text-sm font-bold text-slate-900 focus:outline-none"
+                className={isDarkMode ? "bg-slate-800 border border-teal-500 rounded-md px-2 py-0.5 text-sm font-bold text-slate-100 focus:outline-none" : "bg-white border border-teal-500 rounded-md px-2 py-0.5 text-sm font-bold text-slate-900 focus:outline-none"}
               />
             ) : (
               <h2
                 onClick={() => userRole !== 'Viewer' && setIsEditingBoardTitle(true)}
-                className="font-bold text-slate-900 text-base sm:text-lg flex items-center gap-2 cursor-pointer group"
+                className={isDarkMode ? "font-bold text-slate-100 text-base sm:text-lg flex items-center gap-2 cursor-pointer group" : "font-bold text-slate-900 text-base sm:text-lg flex items-center gap-2 cursor-pointer group"}
                 title="Click to rename board"
               >
                 <span>{board?.title}</span>
@@ -760,9 +1170,26 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                 </span>
               </h2>
             )}
-            <p className="text-[11px] text-slate-500 truncate max-w-xs sm:max-w-md hidden sm:block">
-              {board?.description || 'Hospitality Kanban operations & shift tracking.'}
-            </p>
+
+            {isEditingBoardDescription ? (
+              <input
+                type="text"
+                value={boardDescriptionInput}
+                onChange={(e) => setBoardDescriptionInput(e.target.value)}
+                onBlur={handleSaveBoardDescription}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveBoardDescription()}
+                autoFocus
+                className={isDarkMode ? "bg-slate-800 border border-teal-500 rounded-md px-2 py-0.5 text-xs text-slate-200 focus:outline-none mt-1 w-full sm:w-80" : "bg-white border border-teal-500 rounded-md px-2 py-0.5 text-xs text-slate-900 focus:outline-none mt-1 w-full sm:w-80"}
+              />
+            ) : (
+              <p
+                onClick={() => userRole !== 'Viewer' && setIsEditingBoardDescription(true)}
+                className={isDarkMode ? "text-[11px] text-slate-300 truncate max-w-xs sm:max-w-md hidden sm:block cursor-pointer hover:text-teal-400 transition-colors" : "text-[11px] text-slate-500 truncate max-w-xs sm:max-w-md hidden sm:block cursor-pointer hover:text-teal-700 transition-colors"}
+                title={userRole !== 'Viewer' ? "Click to edit board description" : ""}
+              >
+                {board?.description || (userRole !== 'Viewer' ? 'Click to add board description...' : 'Hospitality Kanban operations & shift tracking.')}
+              </p>
+            )}
           </div>
         </div>
 
@@ -870,6 +1297,23 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
             <span className="hidden sm:inline">Share</span>
           </button>
 
+          {/* Notifications Center */}
+          <NotificationCenter isDarkMode={isDarkMode} />
+
+          {/* Dark Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className={`p-2 rounded-lg border transition-all cursor-pointer ${
+              isDarkMode
+                ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
+                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
           {/* 4b. Live Activity Feed Trigger */}
           <button
             type="button"
@@ -898,18 +1342,20 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                   Board Settings & Ops
                 </div>
 
+                {/* 1. Generate QR Code & Invite Link */}
                 <button
                   type="button"
                   onClick={() => {
-                    setIsActivityDrawerOpen(true);
+                    setIsInviteModalOpen(true);
                     setIsSettingsMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-700 hover:bg-slate-100 flex items-center gap-2 cursor-pointer"
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100/80 flex items-center gap-2 cursor-pointer border border-teal-200/60 mb-1"
                 >
-                  <History className="w-4 h-4 text-teal-600" />
-                  <span>Live Activity History ({activityLogs.length})</span>
+                  <QrCode className="w-4 h-4 text-teal-600" />
+                  <span>Generate Invite Link / QR Code</span>
                 </button>
 
+                {/* 2. About this Board */}
                 <button
                   type="button"
                   onClick={() => {
@@ -922,6 +1368,20 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                   <span>About this board (Stats & Owner)</span>
                 </button>
 
+                {/* 3. Background Customizer */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBackgroundModalOpen(true);
+                    setIsSettingsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-700 hover:bg-slate-100 flex items-center gap-2 cursor-pointer"
+                >
+                  <Palette className="w-4 h-4 text-teal-600" />
+                  <span>Background & Theme Customizer</span>
+                </button>
+
+                {/* 4. Labels Manager */}
                 <button
                   type="button"
                   onClick={() => {
@@ -934,6 +1394,33 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                   <span>Labels (customize text & colors)</span>
                 </button>
 
+                {/* 5. Archived Cards */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsArchivedCardsModalOpen(true);
+                    setIsSettingsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-700 hover:bg-slate-100 flex items-center gap-2 cursor-pointer"
+                >
+                  <Archive className="w-4 h-4 text-teal-600" />
+                  <span>Archived Tasks ({archivedCards.length})</span>
+                </button>
+
+                {/* 6. Live Activity History */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActivityDrawerOpen(true);
+                    setIsSettingsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-700 hover:bg-slate-100 flex items-center gap-2 cursor-pointer"
+                >
+                  <History className="w-4 h-4 text-teal-600" />
+                  <span>Live Activity History ({activityLogs.length})</span>
+                </button>
+
+                {/* 7. WIP Limits */}
                 <button
                   type="button"
                   onClick={() => {
@@ -946,6 +1433,7 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                   <span>Set Column WIP Limits</span>
                 </button>
 
+                {/* 8. Export Shift Summary */}
                 <button
                   type="button"
                   onClick={handleExportShiftSummary}
@@ -971,10 +1459,31 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                 <button
                   type="button"
                   onClick={onBackToDashboard}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-600 hover:bg-slate-100 flex items-center gap-2 cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <ChevronLeft className="w-4 h-4 text-slate-400" />
                   <span>Leave Board</span>
+                </button>
+
+                <div className="my-1 border-t border-slate-200" />
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsSettingsMenuOpen(false);
+                    if (onLogout) {
+                      onLogout();
+                    } else {
+                      try {
+                        await apiFetch('/api/auth/logout', { method: 'POST' });
+                      } catch {}
+                      window.location.reload();
+                    }
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 text-rose-500" />
+                  <span>Log Out</span>
                 </button>
               </div>
             )}
@@ -1035,12 +1544,27 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
             <option value="completed">Completed Only</option>
           </select>
 
+          {/* Filter by Label */}
+          <select
+            value={selectedLabelFilter}
+            onChange={(e) => setSelectedLabelFilter(e.target.value)}
+            className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none"
+          >
+            <option value="all">All Labels</option>
+            {labels.map((l) => (
+              <option key={l.id} value={l.id}>
+                🏷️ {l.name}
+              </option>
+            ))}
+          </select>
+
           <button
             type="button"
             onClick={() => {
               setSearchFilter('');
               setSelectedMemberFilter('all');
               setSelectedPriorityFilter('all');
+              setSelectedLabelFilter('all');
               setSelectedStatusFilter('all');
             }}
             className="text-xs text-slate-500 hover:text-teal-700 px-2 py-1 cursor-pointer font-medium"
@@ -1063,8 +1587,6 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
 
               const limit = wipLimits[list.title] || 0;
               const isOverWip = limit > 0 && listCards.length > limit;
-              const isBoardCreator = board?.created_by === currentUser.id;
-              const canEditColumns = isBoardCreator || userRole === 'Board Admin' || currentUser.role === 'Admin/Group Owner' || currentUser.role === 'Manager';
 
               return (
                 <div
@@ -1121,17 +1643,27 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                         </span>
 
                         {canEditColumns && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingListId(list.id);
-                              setEditingListTitle(list.title);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-teal-700 transition-opacity cursor-pointer"
-                            title="Rename column"
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingListId(list.id);
+                                setEditingListTitle(list.title);
+                              }}
+                              className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-teal-700 cursor-pointer"
+                              title="Rename column"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteColumn(list.id)}
+                              className="p-1 rounded hover:bg-red-100 text-slate-400 hover:text-red-600 cursor-pointer"
+                              title="Delete column"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         )}
 
                         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
@@ -1169,6 +1701,8 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                           key={card.id}
                           draggable={userRole !== 'Viewer'}
                           onDragStart={(e) => handleDragStart(e, card.id)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => handleCardDropOnCard(e, card, list.id)}
                           onClick={() => setActiveCardModal(card)}
                           className={`group relative bg-white border rounded-lg p-3.5 shadow-xs transition-all duration-150 cursor-pointer ${
                             isComplete
@@ -1188,6 +1722,23 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                                   {lbl.name}
                                 </span>
                               ))}
+                            </div>
+                          )}
+
+                          {/* Cover Photo Preview if card has photos */}
+                          {card.image_paths && card.image_paths.length > 0 && (
+                            <div className="mb-2 rounded-md overflow-hidden h-20 bg-slate-100 border border-slate-200 relative">
+                              <img
+                                src={card.image_paths[0]}
+                                alt="Task cover"
+                                className="w-full h-full object-cover"
+                              />
+                              {card.image_paths.length > 1 && (
+                                <span className="absolute bottom-1 right-1 bg-slate-900/75 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                  <Camera className="w-2.5 h-2.5" />
+                                  <span>+{card.image_paths.length - 1}</span>
+                                </span>
+                              )}
                             </div>
                           )}
 
@@ -1223,8 +1774,15 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                               <span>{isComplete ? 'Done' : 'Complete'}</span>
                             </button>
 
-                            {/* Checklist & Comments Badge */}
+                            {/* Checklist, Photos & Due Date Badge */}
                             <div className="flex items-center gap-2">
+                              {card.image_paths && card.image_paths.length > 0 && (
+                                <span className="flex items-center gap-1 text-[10px] text-slate-500 font-medium" title={`${card.image_paths.length} photo(s)`}>
+                                  <Camera className="w-3 h-3 text-slate-400" />
+                                  <span>{card.image_paths.length}</span>
+                                </span>
+                              )}
+
                               {hasChecklists && (
                                 <span className="flex items-center gap-1 text-[10px] text-slate-500">
                                   <CheckSquare className="w-3 h-3" />
@@ -1247,6 +1805,20 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                                   className="w-5 h-5 rounded-full object-cover bg-slate-200 ring-1 ring-teal-500/30"
                                 />
                               )}
+
+                              {userRole !== 'Viewer' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteCard(card.id, card.title);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all cursor-pointer ml-1"
+                                  title="Delete task"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
 
                           </div>
@@ -1260,26 +1832,50 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                         <textarea
                           rows={2}
                           value={newCardTitle}
+                          disabled={isCreatingCard}
                           onChange={(e) => setNewCardTitle(e.target.value)}
-                          placeholder="Task title (e.g. Prep banquette garnishes)..."
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              if (newCardTitle.trim() && !isCreatingCard) {
+                                handleCreateCard(list.id);
+                              }
+                            }
+                            if (e.key === 'Escape') {
+                              setAddingCardInListId(null);
+                            }
+                          }}
+                          placeholder="Task title (press Enter to add)..."
                           autoFocus
-                          className="w-full bg-slate-50 border border-slate-300 rounded-md p-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 resize-none"
+                          className="w-full bg-slate-50 border border-slate-300 rounded-md p-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 resize-none disabled:opacity-50"
                         />
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setAddingCardInListId(null)}
-                            className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCreateCard(list.id)}
-                            className="text-xs bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm"
-                          >
-                            Add Task
-                          </button>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400">↵ Enter to add</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={isCreatingCard}
+                              onClick={() => setAddingCardInListId(null)}
+                              className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1 cursor-pointer disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isCreatingCard || !newCardTitle.trim()}
+                              onClick={() => handleCreateCard(list.id)}
+                              className="text-xs bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                            >
+                              {isCreatingCard ? (
+                                <>
+                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  <span>Adding...</span>
+                                </>
+                              ) : (
+                                <span>Add Task</span>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1287,6 +1883,47 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                 </div>
               );
             })}
+
+            {canEditColumns && (
+              <div className="w-80 sm:w-84 shrink-0">
+                {isAddingColumn ? (
+                  <form onSubmit={handleAddColumn} className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm space-y-3">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newColumnTitle}
+                      onChange={(e) => setNewColumnTitle(e.target.value)}
+                      placeholder="Column title (e.g. Quality Check)..."
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-teal-500"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="submit"
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                      >
+                        Add Column
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsAddingColumn(false); setNewColumnTitle(''); }}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingColumn(true)}
+                    className="w-full h-14 border-2 border-dashed border-slate-300 hover:border-teal-500 rounded-xl bg-slate-50/50 hover:bg-teal-50/30 text-slate-600 hover:text-teal-700 font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add New Column</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </main>
       ) : viewMode === 'table' ? (
@@ -1438,9 +2075,24 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                             )}
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <span className="text-teal-600 font-semibold text-xs group-hover:underline">
-                              Edit &rarr;
-                            </span>
+                            <div className="flex items-center justify-end gap-2.5">
+                              {userRole !== 'Viewer' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteCard(card.id, card.title);
+                                  }}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Delete task"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <span className="text-teal-600 font-semibold text-xs group-hover:underline">
+                                Edit &rarr;
+                              </span>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1520,9 +2172,9 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
             setActiveCardModal(updated);
           }}
           onArchiveCard={(cardId) => {
-            setCards((prev) => prev.filter((c) => c.id !== cardId));
-            setActiveCardModal(null);
+            handleDeleteCard(cardId, activeCardModal.title);
           }}
+          onDeleteCard={handleDeleteCard}
           onCreateLabel={handleCreateLabel}
           onUpdateLabel={handleUpdateLabel}
           onDeleteLabel={handleDeleteLabel}
@@ -1811,10 +2463,21 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                    💡 The user will be created in your company directory with default password{' '}
-                    <code className="text-teal-700 font-bold">Password123!</code> and instantly joined to this board.
-                  </p>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                      Initial Password
+                    </label>
+                    <input
+                      type="text"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      placeholder="Password123! (or set custom password)"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-teal-500 font-mono"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Defaults to <code className="text-teal-700 font-bold">Password123!</code>. The user can immediately sign in with this password.
+                    </p>
+                  </div>
 
                   <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3">
                     <button
@@ -1901,17 +2564,31 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setIsMembersDrawerOpen(false);
-                setIsShareModalOpen(true);
-              }}
-              className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Invite Another Member</span>
-            </button>
+            <div className="space-y-2 pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMembersDrawerOpen(false);
+                  setIsInviteModalOpen(true);
+                }}
+                className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <QrCode className="w-4 h-4 text-teal-200" />
+                <span>Generate QR Code / Join Link</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMembersDrawerOpen(false);
+                  setIsShareModalOpen(true);
+                }}
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5 text-slate-500" />
+                <span>Add Existing Staff from Directory</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1950,7 +2627,17 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
                     return (
                       <div
                         key={act.id}
-                        className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1 hover:bg-slate-100/70 transition-colors"
+                        onClick={() => {
+                          if (act.card_id) {
+                            const targetCard = cards.find((c) => c.id === act.card_id);
+                            if (targetCard) {
+                              setActiveCardModal(targetCard);
+                              setIsActivityDrawerOpen(false);
+                            }
+                          }
+                        }}
+                        className={`p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1 transition-colors ${act.card_id ? 'cursor-pointer hover:bg-teal-50/60 hover:border-teal-300' : ''}`}
+                        title={act.card_id ? 'Click to open task card' : ''}
                       >
                         <div className="flex items-center justify-between text-[11px] text-slate-400">
                           <span className="font-semibold text-slate-800">{user}</span>
@@ -2389,6 +3076,210 @@ export default function BoardView({ boardId, currentUser, onBackToDashboard }: B
         </div>
       )}
 
+      {/* Hospitality QR Code & Invite Link Modal */}
+      {isInviteModalOpen && (
+        <HospitalityInviteModal
+          boardId={boardId}
+          boardTitle={board?.title || 'Shift Operations'}
+          currentUser={currentUser}
+          onClose={() => setIsInviteModalOpen(false)}
+          onNotification={(msg, type) => showToast({ title: 'Shift Onboarding', message: msg, type: type || 'success' })}
+        />
+      )}
+
+      {/* Background & Theme Customizer Modal */}
+      {isBackgroundModalOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsBackgroundModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <Palette className="w-5 h-5 text-teal-600" />
+                <span>Board Background & Theme</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsBackgroundModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Select an ambient background color/gradient or upload a custom wallpaper image (PNG/JPG, max 1MB).
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {[
+                { name: 'Slate Night', val: '#0f172a' },
+                { name: 'Kitchen Dark', val: '#1e293b' },
+                { name: 'Teal Ambient', val: 'linear-gradient(to right, #0f766e, #065f46)' },
+                { name: 'Midnight Blue', val: 'linear-gradient(to right, #1e3a8a, #0f172a)' },
+                { name: 'Deep Burgundy', val: 'linear-gradient(to right, #881337, #4c0519)' },
+                { name: 'Forest Shift', val: 'linear-gradient(to right, #064e3b, #022c22)' },
+              ].map((bg) => (
+                <button
+                  key={bg.name}
+                  type="button"
+                  onClick={() => handleUpdateBackground(bg.val)}
+                  className="h-16 rounded-xl border border-slate-300 shadow-sm relative overflow-hidden flex flex-col justify-end p-2 cursor-pointer transition-transform hover:scale-102"
+                  style={{ background: bg.val }}
+                >
+                  <span className="text-[10px] font-bold text-white drop-shadow-md">{bg.name}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Wallpaper Upload Section */}
+            <div className="pt-3 border-t border-slate-200 space-y-3">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Upload Custom Wallpaper (PNG/JPG, Max 1MB)
+              </label>
+
+              {/* Toggle Switch: Left = Repeat, Right = Full / Fit / Stretched */}
+              <div className="flex items-center justify-between text-xs text-slate-700 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setWallpaperMode('repeat')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    wallpaperMode === 'repeat'
+                      ? 'bg-white text-teal-800 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Repeat / Tile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWallpaperMode('cover')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    wallpaperMode === 'cover'
+                      ? 'bg-white text-teal-800 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Full / Fit / Stretched
+                </button>
+              </div>
+
+              <input
+                type="file"
+                accept="image/png, image/jpeg"
+                onChange={(e) => setSelectedWallpaperFile(e.target.files?.[0] || null)}
+                className="w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer"
+              />
+              {selectedWallpaperFile && (
+                <div className="text-[11px] text-teal-700 font-medium bg-teal-50 px-2.5 py-1.5 rounded-lg border border-teal-200 flex items-center justify-between">
+                  <span>Staged: {selectedWallpaperFile.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedWallpaperFile(null)}
+                    className="text-teal-900 hover:text-rose-600 font-bold ml-2"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedWallpaperFile(null);
+                  setIsBackgroundModalOpen(false);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedWallpaperFile) {
+                    uploadWallpaperFile(selectedWallpaperFile, wallpaperMode);
+                  } else {
+                    setIsBackgroundModalOpen(false);
+                  }
+                }}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-xl cursor-pointer shadow-sm"
+              >
+                {selectedWallpaperFile ? 'Upload & Apply Wallpaper' : 'Done'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archived Cards Modal */}
+      {isArchivedCardsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 flex flex-col max-h-[85vh] space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 shrink-0">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <Archive className="w-5 h-5 text-teal-600" />
+                <span>Archived Shift Tasks ({archivedCards.length})</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsArchivedCardsModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5">
+              {archivedCards.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  No tasks archived on this board.
+                </div>
+              ) : (
+                archivedCards.map((c) => (
+                  <div
+                    key={c.id}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3"
+                  >
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">{c.title}</h4>
+                      <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
+                        {c.description || 'No description'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreCard(c.id)}
+                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shrink-0 cursor-pointer transition-colors"
+                    >
+                      Restore Task
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-200 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsArchivedCardsModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Footer className="mt-auto" />
     </div>
   );
 }

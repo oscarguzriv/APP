@@ -1,8 +1,8 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
-import { verifyToken, AUTH_COOKIE_NAME } from './auth.ts';
-import { db } from './db.ts';
-import { SafeUser } from './types.ts';
+import { verifyToken, AUTH_COOKIE_NAME, toSafeUser } from './auth';
+import { db } from './db';
+import { User, SafeUser } from './types';
 
 export interface AuthenticatedSocket extends Socket {
   user?: SafeUser;
@@ -102,7 +102,10 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
 
       // Broadcast updated presence to room
       const activeIds = Array.from(activeBoardUsers.get(boardId) || []);
-      const activeMembers = activeIds.map((id) => db.findUserById(id)).filter(Boolean);
+      const activeMembers = activeIds
+        .map((id) => db.findUserById(id))
+        .filter((u): u is User => Boolean(u))
+        .map((u) => toSafeUser(u));
       io?.to(roomName).emit('board:presence', {
         boardId,
         activeUserIds: activeIds,
@@ -119,7 +122,10 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
       if (activeBoardUsers.has(boardId)) {
         activeBoardUsers.get(boardId)!.delete(user.id);
         const activeIds = Array.from(activeBoardUsers.get(boardId) || []);
-        const activeMembers = activeIds.map((id) => db.findUserById(id)).filter(Boolean);
+        const activeMembers = activeIds
+          .map((id) => db.findUserById(id))
+          .filter((u): u is User => Boolean(u))
+          .map((u) => toSafeUser(u));
         io?.to(roomName).emit('board:presence', {
           boardId,
           activeUserIds: activeIds,
@@ -138,7 +144,10 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
             userSet.delete(user.id);
             const roomName = `board:${boardId}`;
             const activeIds = Array.from(userSet);
-            const activeMembers = activeIds.map((id) => db.findUserById(id)).filter(Boolean);
+            const activeMembers = activeIds
+              .map((id) => db.findUserById(id))
+              .filter((u): u is User => Boolean(u))
+              .map((u) => toSafeUser(u));
             io?.to(roomName).emit('board:presence', {
               boardId,
               activeUserIds: activeIds,

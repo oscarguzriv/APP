@@ -6,7 +6,7 @@
         "id": "11111111-1111-4111-a111-111111111111",
         "name": "Chef Marcus Vance",
         "email": "admin@test.com",
-        "password_hash": "$2b$10$TXjqegHMj5YLhLt/gQ3ct.vc.oksJ.wQRas82YpUxBWLYgc5qf9na",
+        "password_hash": "$2b$10$GOCXFRRh1VNx7ETA8f1Rq.Qi9g6ojZN0yCzcl1Y./Hyr6D4NnHZX.",
         "company": "Grand Regency Hotel & Resort",
         "role": "Admin/Group Owner",
         "avatar_url": "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&auto=format&fit=crop&q=80",
@@ -132,6 +132,180 @@
         "created_at": "2026-10-15T20:50:55.263Z",
         "updated_at": "2026-10-15T20:50:55.263Z"
       }
+    ],
+    [
+      "user-tenant-a",
+      {
+        "id": "user-tenant-a",
+        "name": "User A",
+        "email": "usera@tenanta.com",
+        "password_hash": "$2b$10$4QDNOn2xfVMd0ZLY/OVi8O.jI9wsm22sXRiWZngXOd/kGjHZ534ey",
+        "company": "Tenant A",
+        "role": "Admin/Group Owner",
+        "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=User%20A",
+        "google_access_token": null,
+        "google_refresh_token": null,
+        "google_token_expires_at": null,
+        "google_calendar_id": null,
+        "notification_preferences": {
+          "inapp_mention_description": true,
+          "inapp_mention_comment": true,
+          "inapp_card_modification": true,
+          "email_mention_description": true,
+          "email_mention_comment": true,
+          "email_card_modification": true,
+          "email_welcome": true,
+          "email_password_reset": true
+        },
+        "is_active": true,
+        "created_at": "2026-10-29T21:04:27.018Z",
+        "updated_at": "2026-10-29T21:04:27.018Z"
+      }
+    ],
+    [
+      "user-tenant-b",
+      {
+        "id": "user-tenant-b",
+        "name": "User B",
+        "email": "userb@tenantb.com",
+        "password_hash": "$2b$10$4QDNOn2xfVMd0ZLY/OVi8O.jI9wsm22sXRiWZngXOd/kGjHZ534ey",
+        "company": "Tenant B",
+        "role": "Admin/Group Owner",
+        "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=User%20B",
+        "google_access_token": null,
+        "google_refresh_token": null,
+        "google_token_expires_at": null,
+        "google_calendar_id": null,
+        "notification_preferences": {
+          "inapp_mention_description": true,
+          "inapp_mention_comment": true,
+          "inapp_card_modification": true,
+          "email_mention_description": true,
+          "email_mention_comment": true,
+          "email_card_modification": true,
+          "email_welcome": true,
+          "email_password_reset": true
+        },
+        "is_active": true,
+        "created_at": "2026-10-29T21:04:27.019Z",
+        "updated_at": "2026-10-29T21:04:27.019Z"
+      }
+    ],
+    [
+      "user-tenant-a-1793307890084",
+      {
+        "id": "user-tenant-a-1793307890084",
+        "name": "User A",
+        "email": "usera_1793307890084@tenanta.com",
+        "password_hash": "$2b$10$HDP7SbDiPuNJeoqj1DO3VOnkZotkUwn716y/DNUfFVXutAXA4qExe",
+        "company": "Tenant A",
+        "role": "Admin/Group Owner",
+        "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=User%20A",
+        "google_access_token": null,
+        "google_refresh_token": null,
+        "google_token_expires_at": null,
+        "google_calendar_id": null,
+        "notification_preferences": {
+          "inapp_mention_description": true,
+          "inapp_mention_comment": true,
+          "inapp_card_modification": true,
+          "email_mention_description": true,
+          "email_mention_comment": true,
+          "email_card_modification": true,
+          "email_welcome": true,
+          "email_password_reset": true
+        },
+        "is_active": true,
+        "created_at": "2026-10-29T21:04:50.084Z",
+        "updated_at": "2026-10-29T21:04:50.084Z"
+      }
+    ],
+    [
+      "user-tenant-b-1793307890084",
+      {
+        "id": "user-tenant-b-1793307890084",
+        "name": "User B",
+        "email": "userb_1793307890084@tenantb.com",
+        "password_hash": "$2b$10$HDP7SbDiPuNJeoqj1DO3VOnkZotkUwn716y/DNUfFVXutAXA4qExe",
+        "company": "Tenant B",
+        "role": "Admin/Group Owner",
+        "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=User%20B",
+        "google_access_token": null,
+        "google_refresh_token": null,
+        "google_token_expires_at": null,
+        "google_calendar_id": null,
+        "notification_preferences": {
+          "inapp_mention_description": true,
+          "inapp_mention_comment": true,
+          "inapp_card_modification": true,
+          "email_mention_description": true,
+          "email_mention_comment": true,
+          "email_card_modification": true,
+          "email_welcome": true,
+          "email_password_reset": true
+        },
+        "is_active": true,
+        "created_at": "2026-10-29T21:04:50.085Z",
+        "updated_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "user-tenant-a-1793307921727",
+      {
+        "id": "user-tenant-a-1793307921727",
+        "name": "User A",
+        "email": "usera_1793307921727@tenanta.com",
+        "password_hash": "$2b$10$eCXztLHY8pRzE1WlrZ2/S.DEkBqbE8zRRQM2cfYHOq6VFFSPBib1m",
+        "company": "Tenant A",
+        "role": "Admin/Group Owner",
+        "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=User%20A",
+        "google_access_token": null,
+        "google_refresh_token": null,
+        "google_token_expires_at": null,
+        "google_calendar_id": null,
+        "notification_preferences": {
+          "inapp_mention_description": true,
+          "inapp_mention_comment": true,
+          "inapp_card_modification": true,
+          "email_mention_description": true,
+          "email_mention_comment": true,
+          "email_card_modification": true,
+          "email_welcome": true,
+          "email_password_reset": true
+        },
+        "is_active": true,
+        "created_at": "2026-10-29T21:05:21.727Z",
+        "updated_at": "2026-10-29T21:05:21.727Z"
+      }
+    ],
+    [
+      "user-tenant-b-1793307921727",
+      {
+        "id": "user-tenant-b-1793307921727",
+        "name": "User B",
+        "email": "userb_1793307921727@tenantb.com",
+        "password_hash": "$2b$10$eCXztLHY8pRzE1WlrZ2/S.DEkBqbE8zRRQM2cfYHOq6VFFSPBib1m",
+        "company": "Tenant B",
+        "role": "Admin/Group Owner",
+        "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=User%20B",
+        "google_access_token": null,
+        "google_refresh_token": null,
+        "google_token_expires_at": null,
+        "google_calendar_id": null,
+        "notification_preferences": {
+          "inapp_mention_description": true,
+          "inapp_mention_comment": true,
+          "inapp_card_modification": true,
+          "email_mention_description": true,
+          "email_mention_comment": true,
+          "email_card_modification": true,
+          "email_welcome": true,
+          "email_password_reset": true
+        },
+        "is_active": true,
+        "created_at": "2026-10-29T21:05:21.728Z",
+        "updated_at": "2026-10-29T21:05:21.728Z"
+      }
     ]
   ],
   "boards": [
@@ -161,6 +335,62 @@
         "created_by": "11111111-1111-4111-a111-111111111111",
         "created_at": "2026-10-15T20:32:56.559Z",
         "updated_at": "2026-10-15T20:32:56.559Z"
+      }
+    ],
+    [
+      "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+      {
+        "id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "title": "Tenant A Board",
+        "description": "",
+        "background_value": "#0f172a",
+        "is_closed": false,
+        "closed_at": null,
+        "created_by": "user-tenant-a",
+        "created_at": "2026-10-29T21:04:27.020Z",
+        "updated_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+      {
+        "id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "title": "Tenant A Board",
+        "description": "",
+        "background_value": "#0f172a",
+        "is_closed": false,
+        "closed_at": null,
+        "created_by": "user-tenant-a-1793307890084",
+        "created_at": "2026-10-29T21:04:50.085Z",
+        "updated_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "eee2da16-f00b-4595-96fb-394c438a1b3d",
+      {
+        "id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "title": "Tenant A Board",
+        "description": "",
+        "background_value": "#0f172a",
+        "is_closed": false,
+        "closed_at": null,
+        "created_by": "user-tenant-a-1793307921727",
+        "created_at": "2026-10-29T21:05:21.729Z",
+        "updated_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "b44e790c-3472-4856-96ab-308cc0ba3d45",
+      {
+        "id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "title": "Tenant B Board",
+        "description": "",
+        "background_value": "#0f172a",
+        "is_closed": false,
+        "closed_at": null,
+        "created_by": "user-tenant-b-1793307921727",
+        "created_at": "2026-10-29T21:05:21.730Z",
+        "updated_at": "2026-10-29T21:05:21.730Z"
       }
     ]
   ],
@@ -247,6 +477,54 @@
         "invited_by": "11111111-1111-4111-a111-111111111111",
         "created_at": "2026-10-15T20:40:14.022Z",
         "updated_at": "2026-10-15T20:40:14.022Z"
+      }
+    ],
+    [
+      "25fb653a-85c7-445b-a3ae-baa88ef62735",
+      {
+        "id": "25fb653a-85c7-445b-a3ae-baa88ef62735",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "user_id": "user-tenant-a",
+        "role": "Board Admin",
+        "invited_by": "user-tenant-a",
+        "created_at": "2026-10-29T21:04:27.020Z",
+        "updated_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "39736a92-1c9f-4ffe-9e48-e9ee4687decf",
+      {
+        "id": "39736a92-1c9f-4ffe-9e48-e9ee4687decf",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "user_id": "user-tenant-a-1793307890084",
+        "role": "Board Admin",
+        "invited_by": "user-tenant-a-1793307890084",
+        "created_at": "2026-10-29T21:04:50.085Z",
+        "updated_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "8a9fd36a-9331-4c00-a15e-78ec5feeff31",
+      {
+        "id": "8a9fd36a-9331-4c00-a15e-78ec5feeff31",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "user_id": "user-tenant-a-1793307921727",
+        "role": "Board Admin",
+        "invited_by": "user-tenant-a-1793307921727",
+        "created_at": "2026-10-29T21:05:21.729Z",
+        "updated_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "f756a5db-95a6-4ba0-bf6f-dfe8901a116b",
+      {
+        "id": "f756a5db-95a6-4ba0-bf6f-dfe8901a116b",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "user_id": "user-tenant-b-1793307921727",
+        "role": "Board Admin",
+        "invited_by": "user-tenant-b-1793307921727",
+        "created_at": "2026-10-29T21:05:21.730Z",
+        "updated_at": "2026-10-29T21:05:21.730Z"
       }
     ]
   ],
@@ -339,6 +617,166 @@
         "name": "wille's",
         "color": "#f59e0b",
         "created_at": "2026-10-15T20:33:52.233Z"
+      }
+    ],
+    [
+      "7ee8e0ee-1f3a-4bbb-811f-3328f543c50c",
+      {
+        "id": "7ee8e0ee-1f3a-4bbb-811f-3328f543c50c",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "name": "To Prep",
+        "color": "#3b82f6",
+        "created_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "ef81015f-e8e8-4cf3-ab39-8c1bbd7a3c9b",
+      {
+        "id": "ef81015f-e8e8-4cf3-ab39-8c1bbd7a3c9b",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "name": "Chef Special",
+        "color": "#8b5cf6",
+        "created_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "87fda2b0-33da-4850-98a8-07d048e58a07",
+      {
+        "id": "87fda2b0-33da-4850-98a8-07d048e58a07",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "name": "Urgent Action",
+        "color": "#ef4444",
+        "created_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "3168f906-553d-4fcc-bb74-4f312352e768",
+      {
+        "id": "3168f906-553d-4fcc-bb74-4f312352e768",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "name": "Inspection Ready",
+        "color": "#10b981",
+        "created_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "c3e45c56-dfb5-4d3e-b2ba-0cde061fb1bd",
+      {
+        "id": "c3e45c56-dfb5-4d3e-b2ba-0cde061fb1bd",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "name": "To Prep",
+        "color": "#3b82f6",
+        "created_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "685d2d51-aaf6-48e7-a1e1-3a1a332181ca",
+      {
+        "id": "685d2d51-aaf6-48e7-a1e1-3a1a332181ca",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "name": "Chef Special",
+        "color": "#8b5cf6",
+        "created_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "2d001ca3-07ba-4949-88b5-9c82c4a54064",
+      {
+        "id": "2d001ca3-07ba-4949-88b5-9c82c4a54064",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "name": "Urgent Action",
+        "color": "#ef4444",
+        "created_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "fc24da41-3266-4eda-ab45-ab271e1b5607",
+      {
+        "id": "fc24da41-3266-4eda-ab45-ab271e1b5607",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "name": "Inspection Ready",
+        "color": "#10b981",
+        "created_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "7155efc5-02a0-4403-a046-a3cc36915921",
+      {
+        "id": "7155efc5-02a0-4403-a046-a3cc36915921",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "name": "To Prep",
+        "color": "#3b82f6",
+        "created_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "245b98a7-99f8-4035-9252-682ba45adbfd",
+      {
+        "id": "245b98a7-99f8-4035-9252-682ba45adbfd",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "name": "Chef Special",
+        "color": "#8b5cf6",
+        "created_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "375a0557-fc7e-4e25-972f-d1e42c28d2cc",
+      {
+        "id": "375a0557-fc7e-4e25-972f-d1e42c28d2cc",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "name": "Urgent Action",
+        "color": "#ef4444",
+        "created_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "4748c1ec-ce13-46d1-94a5-b505777c8b80",
+      {
+        "id": "4748c1ec-ce13-46d1-94a5-b505777c8b80",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "name": "Inspection Ready",
+        "color": "#10b981",
+        "created_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "0cec47f9-8272-483a-8a2d-dc49ff2defde",
+      {
+        "id": "0cec47f9-8272-483a-8a2d-dc49ff2defde",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "name": "To Prep",
+        "color": "#3b82f6",
+        "created_at": "2026-10-29T21:05:21.730Z"
+      }
+    ],
+    [
+      "dc155234-b62c-4973-a325-257e56f25c37",
+      {
+        "id": "dc155234-b62c-4973-a325-257e56f25c37",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "name": "Chef Special",
+        "color": "#8b5cf6",
+        "created_at": "2026-10-29T21:05:21.730Z"
+      }
+    ],
+    [
+      "d7679399-78b2-4acf-baf1-6ab5a2ebffbc",
+      {
+        "id": "d7679399-78b2-4acf-baf1-6ab5a2ebffbc",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "name": "Urgent Action",
+        "color": "#ef4444",
+        "created_at": "2026-10-29T21:05:21.730Z"
+      }
+    ],
+    [
+      "c427df4a-65dd-4730-91b9-cdca7a73bd43",
+      {
+        "id": "c427df4a-65dd-4730-91b9-cdca7a73bd43",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "name": "Inspection Ready",
+        "color": "#10b981",
+        "created_at": "2026-10-29T21:05:21.730Z"
       }
     ]
   ],
@@ -445,6 +883,240 @@
         "created_by": "11111111-1111-4111-a111-111111111111",
         "created_at": "2026-10-15T20:32:56.559Z",
         "updated_at": "2026-10-15T20:32:56.559Z"
+      }
+    ],
+    [
+      "06de2e35-fd89-4277-a033-88f13e74a668",
+      {
+        "id": "06de2e35-fd89-4277-a033-88f13e74a668",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "title": "Brainstorm",
+        "position": 65535,
+        "is_archived": false,
+        "created_by": "user-tenant-a",
+        "created_at": "2026-10-29T21:04:27.020Z",
+        "updated_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "a578af0f-ab88-49fa-a616-4f22e4dda3d3",
+      {
+        "id": "a578af0f-ab88-49fa-a616-4f22e4dda3d3",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "title": "Today",
+        "position": 131070,
+        "is_archived": false,
+        "created_by": "user-tenant-a",
+        "created_at": "2026-10-29T21:04:27.020Z",
+        "updated_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "3ba7d54c-1574-4090-abe0-bd15506ba76b",
+      {
+        "id": "3ba7d54c-1574-4090-abe0-bd15506ba76b",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "title": "Tomorrow",
+        "position": 196605,
+        "is_archived": false,
+        "created_by": "user-tenant-a",
+        "created_at": "2026-10-29T21:04:27.020Z",
+        "updated_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "ac322352-7031-41f6-8746-743ef9cf4b47",
+      {
+        "id": "ac322352-7031-41f6-8746-743ef9cf4b47",
+        "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+        "title": "Done",
+        "position": 262140,
+        "is_archived": false,
+        "created_by": "user-tenant-a",
+        "created_at": "2026-10-29T21:04:27.020Z",
+        "updated_at": "2026-10-29T21:04:27.020Z"
+      }
+    ],
+    [
+      "84672181-6978-4a5c-b57f-b64aab47fb74",
+      {
+        "id": "84672181-6978-4a5c-b57f-b64aab47fb74",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "title": "Brainstorm",
+        "position": 65535,
+        "is_archived": false,
+        "created_by": "user-tenant-a-1793307890084",
+        "created_at": "2026-10-29T21:04:50.085Z",
+        "updated_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "7897a8bf-e960-4a11-9d0d-25a53cf3afd5",
+      {
+        "id": "7897a8bf-e960-4a11-9d0d-25a53cf3afd5",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "title": "Today",
+        "position": 131070,
+        "is_archived": false,
+        "created_by": "user-tenant-a-1793307890084",
+        "created_at": "2026-10-29T21:04:50.085Z",
+        "updated_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "9f499cf8-c781-4742-b26a-6d148ea8a2e9",
+      {
+        "id": "9f499cf8-c781-4742-b26a-6d148ea8a2e9",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "title": "Tomorrow",
+        "position": 196605,
+        "is_archived": false,
+        "created_by": "user-tenant-a-1793307890084",
+        "created_at": "2026-10-29T21:04:50.085Z",
+        "updated_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "37d8ed3f-f71a-4c3d-882c-0e72c526db8f",
+      {
+        "id": "37d8ed3f-f71a-4c3d-882c-0e72c526db8f",
+        "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+        "title": "Done",
+        "position": 262140,
+        "is_archived": false,
+        "created_by": "user-tenant-a-1793307890084",
+        "created_at": "2026-10-29T21:04:50.085Z",
+        "updated_at": "2026-10-29T21:04:50.085Z"
+      }
+    ],
+    [
+      "149748d9-ee98-45b4-b8c7-58d13955771d",
+      {
+        "id": "149748d9-ee98-45b4-b8c7-58d13955771d",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "title": "Brainstorm",
+        "position": 65535,
+        "is_archived": false,
+        "created_by": "user-tenant-a-1793307921727",
+        "created_at": "2026-10-29T21:05:21.729Z",
+        "updated_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "bbffbcbb-91b9-4e17-a49a-bd4f33057e37",
+      {
+        "id": "bbffbcbb-91b9-4e17-a49a-bd4f33057e37",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "title": "Today",
+        "position": 131070,
+        "is_archived": false,
+        "created_by": "user-tenant-a-1793307921727",
+        "created_at": "2026-10-29T21:05:21.729Z",
+        "updated_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "44bba31d-e7c3-4fec-965c-522f04c84641",
+      {
+        "id": "44bba31d-e7c3-4fec-965c-522f04c84641",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "title": "Tomorrow",
+        "position": 196605,
+        "is_archived": false,
+        "created_by": "user-tenant-a-1793307921727",
+        "created_at": "2026-10-29T21:05:21.729Z",
+        "updated_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "5e4d773e-48e7-4504-9433-eaa205837034",
+      {
+        "id": "5e4d773e-48e7-4504-9433-eaa205837034",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "title": "Done",
+        "position": 262140,
+        "is_archived": false,
+        "created_by": "user-tenant-a-1793307921727",
+        "created_at": "2026-10-29T21:05:21.729Z",
+        "updated_at": "2026-10-29T21:05:21.729Z"
+      }
+    ],
+    [
+      "b73244c3-9cfa-4371-9dde-d894946f3794",
+      {
+        "id": "b73244c3-9cfa-4371-9dde-d894946f3794",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "title": "List A",
+        "position": 1,
+        "is_archived": false,
+        "created_by": "",
+        "created_at": "2026-10-29T21:05:21.730Z",
+        "updated_at": "2026-10-29T21:05:21.730Z"
+      }
+    ],
+    [
+      "0a649329-b523-41e6-a9d2-5e6d4c169c66",
+      {
+        "id": "0a649329-b523-41e6-a9d2-5e6d4c169c66",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "title": "Brainstorm",
+        "position": 65535,
+        "is_archived": false,
+        "created_by": "user-tenant-b-1793307921727",
+        "created_at": "2026-10-29T21:05:21.730Z",
+        "updated_at": "2026-10-29T21:05:21.730Z"
+      }
+    ],
+    [
+      "c1bf5055-4431-4356-8805-bdd33451897f",
+      {
+        "id": "c1bf5055-4431-4356-8805-bdd33451897f",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "title": "Today",
+        "position": 131070,
+        "is_archived": false,
+        "created_by": "user-tenant-b-1793307921727",
+        "created_at": "2026-10-29T21:05:21.730Z",
+        "updated_at": "2026-10-29T21:05:21.730Z"
+      }
+    ],
+    [
+      "553f2c75-4a10-4cc8-852c-dd9963699fcb",
+      {
+        "id": "553f2c75-4a10-4cc8-852c-dd9963699fcb",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "title": "Tomorrow",
+        "position": 196605,
+        "is_archived": false,
+        "created_by": "user-tenant-b-1793307921727",
+        "created_at": "2026-10-29T21:05:21.730Z",
+        "updated_at": "2026-10-29T21:05:21.730Z"
+      }
+    ],
+    [
+      "25b6ce8c-6580-4651-b5e2-431be768b863",
+      {
+        "id": "25b6ce8c-6580-4651-b5e2-431be768b863",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "title": "Done",
+        "position": 262140,
+        "is_archived": false,
+        "created_by": "user-tenant-b-1793307921727",
+        "created_at": "2026-10-29T21:05:21.730Z",
+        "updated_at": "2026-10-29T21:05:21.730Z"
+      }
+    ],
+    [
+      "6edef961-7520-472b-acd1-beccb4546dab",
+      {
+        "id": "6edef961-7520-472b-acd1-beccb4546dab",
+        "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+        "title": "List B",
+        "position": 1,
+        "is_archived": false,
+        "created_by": "",
+        "created_at": "2026-10-29T21:05:21.732Z",
+        "updated_at": "2026-10-29T21:05:21.732Z"
       }
     ]
   ],
@@ -688,6 +1360,30 @@
         "updated_at": "2026-10-15T20:45:53.272Z",
         "image_paths": []
       }
+    ],
+    [
+      "3a9ae2ea-a619-4067-9254-565634fd25d3",
+      {
+        "id": "3a9ae2ea-a619-4067-9254-565634fd25d3",
+        "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+        "list_id": "b73244c3-9cfa-4371-9dde-d894946f3794",
+        "title": "Card A",
+        "description": "",
+        "position": 65535,
+        "priority": "normal",
+        "due_date": null,
+        "is_completed": false,
+        "completed_at": null,
+        "completed_by": null,
+        "assigned_to": null,
+        "google_event_id": null,
+        "is_archived": false,
+        "archived_at": null,
+        "image_paths": [],
+        "created_by": "user-tenant-a-1793307921727",
+        "created_at": "2026-10-29T21:05:21.733Z",
+        "updated_at": "2026-10-29T21:05:21.733Z"
+      }
     ]
   ],
   "cardChecklistItems": [
@@ -722,6 +1418,66 @@
   ],
   "cardComments": [],
   "cardActivityLogs": [
+    {
+      "id": "88b477b4-b42c-469e-8ccf-97ee7447cf38",
+      "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+      "card_id": "3a9ae2ea-a619-4067-9254-565634fd25d3",
+      "user_id": "user-tenant-a-1793307921727",
+      "action_type": "created_card",
+      "details": {
+        "title": "Card A"
+      },
+      "created_at": "2026-10-29T21:05:21.733Z",
+      "user_name": "User A"
+    },
+    {
+      "id": "9ffd444f-21e0-46db-ac9a-cf68195e5f4e",
+      "board_id": "b44e790c-3472-4856-96ab-308cc0ba3d45",
+      "card_id": null,
+      "user_id": "user-tenant-b-1793307921727",
+      "action_type": "created_board",
+      "details": {
+        "title": "Tenant B Board"
+      },
+      "created_at": "2026-10-29T21:05:21.731Z",
+      "user_name": "User B"
+    },
+    {
+      "id": "3041e775-7644-4f11-a1e9-5583059f6c31",
+      "board_id": "eee2da16-f00b-4595-96fb-394c438a1b3d",
+      "card_id": null,
+      "user_id": "user-tenant-a-1793307921727",
+      "action_type": "created_board",
+      "details": {
+        "title": "Tenant A Board"
+      },
+      "created_at": "2026-10-29T21:05:21.729Z",
+      "user_name": "User A"
+    },
+    {
+      "id": "451386bf-3e1a-4f76-97ec-2aee62978fe0",
+      "board_id": "d5bc971e-880c-425f-b89f-9b1d4d6fc582",
+      "card_id": null,
+      "user_id": "user-tenant-a-1793307890084",
+      "action_type": "created_board",
+      "details": {
+        "title": "Tenant A Board"
+      },
+      "created_at": "2026-10-29T21:04:50.085Z",
+      "user_name": "User A"
+    },
+    {
+      "id": "b5fbda83-300b-40fb-9427-5f8dfb558a02",
+      "board_id": "3dfb4aa7-2a70-4a62-8e30-15cf8498f6ac",
+      "card_id": null,
+      "user_id": "user-tenant-a",
+      "action_type": "created_board",
+      "details": {
+        "title": "Tenant A Board"
+      },
+      "created_at": "2026-10-29T21:04:27.020Z",
+      "user_name": "User A"
+    },
     {
       "id": "67b81de3-f0b6-4312-8ab5-84bf90de5be7",
       "board_id": "f44850e5-3ab3-42a7-8650-488943aedf20",
@@ -1683,7 +2439,8 @@
     "2b3d33ef-eafc-4d00-8dfb-6b45db46e866:d2681827-5962-483a-be31-a243c31877a4",
     "830707bb-3b22-4644-9a75-e8d75f8c1489:d2681827-5962-483a-be31-a243c31877a4",
     "c730b6fe-8a66-47e0-bab2-2e972864bf59:d2681827-5962-483a-be31-a243c31877a4",
-    "24a1603f-c105-4c23-ae8c-086dce9ca07a:d2681827-5962-483a-be31-a243c31877a4"
+    "24a1603f-c105-4c23-ae8c-086dce9ca07a:d2681827-5962-483a-be31-a243c31877a4",
+    "3a9ae2ea-a619-4067-9254-565634fd25d3:user-tenant-a-1793307921727"
   ],
   "invitations": [
     [
@@ -1703,5 +2460,61 @@
       }
     ]
   ],
-  "notifications": []
+  "notifications": [],
+  "emailLogs": [
+    {
+      "id": "18bcb460-1de3-4b17-9fa0-d0a257a2bbbb",
+      "recipient_email": "usera@tenanta.com",
+      "recipient_name": "User A",
+      "subject": "Welcome to RoxCrew - Crew & Task Operations",
+      "body_html": "<div style=\"font-family:sans-serif;padding:20px;color:#333;\"><h2>Welcome to RoxCrew, User A!</h2><p>Your account has been successfully created with Tenant A. You can now manage shift operations, tasks, and team handoffs seamlessly.</p></div>",
+      "type": "welcome",
+      "sent_at": "2026-10-29T21:04:27.019Z"
+    },
+    {
+      "id": "aa29ac86-e0b7-4c3b-86ba-c1822210eb84",
+      "recipient_email": "userb@tenantb.com",
+      "recipient_name": "User B",
+      "subject": "Welcome to RoxCrew - Crew & Task Operations",
+      "body_html": "<div style=\"font-family:sans-serif;padding:20px;color:#333;\"><h2>Welcome to RoxCrew, User B!</h2><p>Your account has been successfully created with Tenant B. You can now manage shift operations, tasks, and team handoffs seamlessly.</p></div>",
+      "type": "welcome",
+      "sent_at": "2026-10-29T21:04:27.020Z"
+    },
+    {
+      "id": "54166147-0156-40ba-b83b-c1d990e38c30",
+      "recipient_email": "usera_1793307890084@tenanta.com",
+      "recipient_name": "User A",
+      "subject": "Welcome to RoxCrew - Crew & Task Operations",
+      "body_html": "<div style=\"font-family:sans-serif;padding:20px;color:#333;\"><h2>Welcome to RoxCrew, User A!</h2><p>Your account has been successfully created with Tenant A. You can now manage shift operations, tasks, and team handoffs seamlessly.</p></div>",
+      "type": "welcome",
+      "sent_at": "2026-10-29T21:04:50.084Z"
+    },
+    {
+      "id": "2a1742cc-c6d6-4811-bbc6-7569c349d100",
+      "recipient_email": "userb_1793307890084@tenantb.com",
+      "recipient_name": "User B",
+      "subject": "Welcome to RoxCrew - Crew & Task Operations",
+      "body_html": "<div style=\"font-family:sans-serif;padding:20px;color:#333;\"><h2>Welcome to RoxCrew, User B!</h2><p>Your account has been successfully created with Tenant B. You can now manage shift operations, tasks, and team handoffs seamlessly.</p></div>",
+      "type": "welcome",
+      "sent_at": "2026-10-29T21:04:50.085Z"
+    },
+    {
+      "id": "e0aba15e-9c41-469f-84f0-df749abf59cb",
+      "recipient_email": "usera_1793307921727@tenanta.com",
+      "recipient_name": "User A",
+      "subject": "Welcome to RoxCrew - Crew & Task Operations",
+      "body_html": "<div style=\"font-family:sans-serif;padding:20px;color:#333;\"><h2>Welcome to RoxCrew, User A!</h2><p>Your account has been successfully created with Tenant A. You can now manage shift operations, tasks, and team handoffs seamlessly.</p></div>",
+      "type": "welcome",
+      "sent_at": "2026-10-29T21:05:21.727Z"
+    },
+    {
+      "id": "c9fb7955-bb39-42b9-9259-ac250ee58754",
+      "recipient_email": "userb_1793307921727@tenantb.com",
+      "recipient_name": "User B",
+      "subject": "Welcome to RoxCrew - Crew & Task Operations",
+      "body_html": "<div style=\"font-family:sans-serif;padding:20px;color:#333;\"><h2>Welcome to RoxCrew, User B!</h2><p>Your account has been successfully created with Tenant B. You can now manage shift operations, tasks, and team handoffs seamlessly.</p></div>",
+      "type": "welcome",
+      "sent_at": "2026-10-29T21:05:21.728Z"
+    }
+  ]
 }

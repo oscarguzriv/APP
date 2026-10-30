@@ -1,9 +1,12 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Response } from 'express';
-import { User, SafeUser, JWTPayload } from './types.ts';
+import { User, SafeUser, JWTPayload } from './types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'hospitality_kanban_secure_jwt_secret_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? undefined : 'hospitality_kanban_secure_jwt_secret_key_2026_dev');
+if (!JWT_SECRET || JWT_SECRET.trim().length < 16) {
+  throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing or insecure (< 16 characters). Set a strong JWT_SECRET in production.');
+}
 const JWT_EXPIRES_IN = '7d';
 export const AUTH_COOKIE_NAME = 'hospitalist_token';
 
@@ -33,7 +36,7 @@ export function generateToken(user: User): string {
     company: user.company,
   };
 
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, JWT_SECRET!, {
     expiresIn: JWT_EXPIRES_IN,
   });
 }
@@ -43,7 +46,7 @@ export function generateToken(user: User): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return jwt.verify(token, JWT_SECRET!) as unknown as JWTPayload;
   } catch (err) {
     return null;
   }

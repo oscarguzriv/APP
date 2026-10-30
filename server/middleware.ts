@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken, AUTH_COOKIE_NAME, toSafeUser } from './auth.ts';
-import { db } from './db.ts';
-import { SafeUser, GlobalUserRole, BoardMemberRole } from './types.ts';
+import { verifyToken, AUTH_COOKIE_NAME, toSafeUser } from './auth';
+import { db } from './db';
+import { SafeUser, GlobalUserRole, BoardMemberRole } from './types';
 
 export interface AuthenticatedRequest extends Request {
   user?: SafeUser;
@@ -9,7 +9,8 @@ export interface AuthenticatedRequest extends Request {
 
 /**
  * Authentication Middleware
- * Validates JWT from HttpOnly cookie or Authorization Bearer header.
+ * Validates JWT strictly from HttpOnly cookie or Authorization Bearer header.
+ * (Bypasses like x-user-email and admin fallback are removed for production security).
  */
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   let token: string | undefined = req.cookies?.[AUTH_COOKIE_NAME];
@@ -18,11 +19,6 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     token = req.headers.authorization.split(' ')[1];
   }
 
-  if (!token && typeof req.headers['x-auth-token'] === 'string') {
-    token = req.headers['x-auth-token'];
-  }
-
-  // 1. Try decoding token if provided
   if (token) {
     const payload = verifyToken(token);
     if (payload) {
@@ -34,28 +30,48 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     }
   }
 
-  // 2. Fallback: Authenticate via x-user-email header (supports seamless client test switching and iframe environments)
-  const headerEmail = (req.headers['x-user-email'] as string) || (req.headers['x-user-id'] as string);
-  if (headerEmail) {
-    const user = db.findUserByEmail(headerEmail) || db.findUserById(headerEmail);
-    if (user && user.is_active) {
-      req.user = toSafeUser(user);
-      return next();
-    }
-  }
-
-  // 3. Fallback: If in test environment and no session specified, default to Admin
-  const defaultAdmin = db.findUserByEmail('admin@grandregency.com');
-  if (defaultAdmin && defaultAdmin.is_active) {
-    req.user = toSafeUser(defaultAdmin);
-    return next();
-  }
-
   res.status(401).json({
     success: false,
     error: 'Authentication required. Please log in.',
     code: 'UNAUTHENTICATED',
   });
+}
+
+/**
+ * CSRF Protection Middleware for state-changing requests (POST, PATCH, PUT, DELETE).
+ * Validates Origin/Referer against allowed host.
+ */
+export function verifyCsrf(req: Request, res: Response, next: NextFunction): void {
+  const method = req.method.toUpperCase();
+  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
+    const origin = req.get('origin');
+    const referer = req.get('referer');
+    const host = req.get('host');
+
+    if (!origin && !referer) {
+      return next();
+    }
+
+    const checkValid = (urlStr: string) => {
+      try {
+        const u = new URL(urlStr);
+        return u.host === host;
+      } catch {
+        return false;
+      }
+    };
+
+    const isValid = (origin && checkValid(origin)) || (referer && checkValid(referer));
+    if (!isValid) {
+      res.status(403).json({
+        success: false,
+        error: 'CSRF validation failed: Origin or Referer header mismatch.',
+        code: 'CSRF_FAILURE',
+      });
+      return;
+    }
+  }
+  next();
 }
 
 /**
@@ -100,7 +116,24 @@ export function requireBoardAccess(minRole: BoardMemberRole = 'Viewer') {
       return;
     }
 
-    const memberRole = db.getBoardMembership(boardId, req.user.id);
+    const board = db.boards.get(boardId);
+    if (!board) {
+      res.status(404).json({ success: false, error: 'Board not found.' });
+      return;
+    }
+
+    let memberRole = db.getBoardMembership(boardId, req.user.id);
+    if (!memberRole) {
+      if (board.created_by === req.user.id) {
+        memberRole = 'Board Admin';
+      } else if (req.user.role === 'Admin/Group Owner' || req.user.role === 'Manager') {
+        const creator = db.findUserById(board.created_by);
+        if (creator && creator.company.toLowerCase() === req.user.company.toLowerCase()) {
+          memberRole = 'Board Admin';
+        }
+      }
+    }
+
     if (!memberRole) {
       res.status(403).json({
         success: false,
@@ -110,7 +143,6 @@ export function requireBoardAccess(minRole: BoardMemberRole = 'Viewer') {
       return;
     }
 
-    // Role hierarchy ranking
     const roleHierarchy: Record<BoardMemberRole, number> = {
       'Viewer': 1,
       'Member': 2,

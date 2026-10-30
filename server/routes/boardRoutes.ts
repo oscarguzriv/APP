@@ -1,7 +1,10 @@
-import { Router, Response } from 'express';
-import { db } from '../db.ts';
-import { requireAuth, requireBoardAccess, AuthenticatedRequest } from '../middleware.ts';
-import { hashPassword, toSafeUser } from '../auth.ts';
+import { Router, Response, NextFunction } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { db } from '../db';
+import { requireAuth, requireBoardAccess, AuthenticatedRequest } from '../middleware';
+import { hashPassword, toSafeUser } from '../auth';
 import {
   broadcastCardCreated,
   broadcastCardMoved,
@@ -10,8 +13,40 @@ import {
   broadcastActivityLogged,
   broadcastChecklistItemUpdated,
   broadcastToBoard,
-} from '../socket.ts';
-import { BoardMemberRole, CardPriority, GlobalUserRole } from '../types.ts';
+} from '../socket';
+import { BoardMemberRole, CardPriority, GlobalUserRole, Card } from '../types';
+
+// Setup local uploads storage for Card photos (Max 5 photos per card, strict file paths only)
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const uploadPath = path.resolve(process.cwd(), 'public', 'uploads');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `card-photo-${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: {
+    fileSize: 8 * 1024 * 1024, // 8MB per file
+    files: 5,
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+    if (allowed.includes(file.mimetype.toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only standard image files (JPEG, PNG, WebP, GIF, AVIF) are permitted.'));
+    }
+  },
+});
 
 export const boardRouter = Router();
 
@@ -35,6 +70,36 @@ boardRouter.get('/', (req: AuthenticatedRequest, res: Response) => {
     activeBoards,
     closedBoards,
   });
+});
+
+/**
+ * POST /api/boards/import-trello
+ * Imports a Trello board JSON export.
+ */
+boardRouter.post('/import-trello', (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    if (user.role === 'Staff') {
+      res.status(403).json({ success: false, error: 'Staff members are not permitted to import boards.' });
+      return;
+    }
+    const trelloData = req.body;
+    if (!trelloData || !trelloData.name) {
+      res.status(400).json({ success: false, error: 'Invalid Trello JSON export data.' });
+      return;
+    }
+
+    const result = db.importTrelloBoard(user.id, trelloData);
+    res.status(201).json({
+      success: true,
+      message: 'Trello board imported successfully.',
+      board: result.board,
+      lists: result.lists,
+      labels: result.labels,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to import Trello board.' });
+  }
 });
 
 /**
@@ -89,12 +154,19 @@ boardRouter.get('/:id', requireBoardAccess('Viewer'), (req: AuthenticatedRequest
     .filter((l) => l.board_id === boardId && !l.is_archived)
     .sort((a, b) => a.position - b.position);
 
-  // Cards
+  // Cards (Active)
   const cards = Array.from(db.cards.values())
     .filter((c) => c.board_id === boardId && !c.is_archived)
     .map((c) => db.getHydratedCard(c.id)!)
     .filter(Boolean)
     .sort((a, b) => a.position - b.position);
+
+  // Cards (Archived)
+  const archivedCards = Array.from(db.cards.values())
+    .filter((c) => c.board_id === boardId && c.is_archived)
+    .map((c) => db.getHydratedCard(c.id)!)
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
   // Members
   const members = Array.from(db.boardMembers.values())
@@ -124,6 +196,7 @@ boardRouter.get('/:id', requireBoardAccess('Viewer'), (req: AuthenticatedRequest
     userRole: (req as any).boardMemberRole,
     lists,
     cards,
+    archivedCards,
     members,
     labels,
     activityLogs,
@@ -131,14 +204,61 @@ boardRouter.get('/:id', requireBoardAccess('Viewer'), (req: AuthenticatedRequest
 });
 
 /**
+ * PATCH /api/cards/:id/unarchive
+ * Restores an archived card back to the board.
+ */
+boardRouter.patch('/cards/:id/unarchive', (req: AuthenticatedRequest, res: Response) => {
+  const cardId = req.params.id;
+  const card = db.cards.get(cardId);
+  if (!card) {
+    res.status(404).json({ success: false, error: 'Card not found.' });
+    return;
+  }
+
+  card.is_archived = false;
+  card.archived_at = null;
+  card.updated_at = new Date().toISOString();
+  db.cards.set(cardId, card);
+  db.saveToDisk();
+
+  db.logActivity({
+    board_id: card.board_id,
+    card_id: card.id,
+    user_id: req.user!.id,
+    action_type: 'card_unarchived',
+    details: { title: card.title },
+  });
+
+  const hydrated = db.getHydratedCard(cardId);
+  if (hydrated) {
+    broadcastCardCreated(card.board_id, hydrated);
+    const latestLog = db.getActivityLogsForBoard(card.board_id)[0];
+    if (latestLog) broadcastActivityLogged(card.board_id, latestLog);
+  }
+
+  res.json({ success: true, card: hydrated, message: `Restored task "${card.title}"` });
+});
+
+/**
  * PATCH /api/boards/:id
  * Updates board settings (title, description, background, closed state).
  */
-boardRouter.patch('/:id', requireBoardAccess('Board Admin'), (req: AuthenticatedRequest, res: Response) => {
+boardRouter.patch('/:id', requireBoardAccess('Member'), (req: AuthenticatedRequest, res: Response) => {
   const boardId = req.params.id;
   const board = db.boards.get(boardId);
   if (!board) {
     res.status(404).json({ success: false, error: 'Board not found.' });
+    return;
+  }
+
+  const user = req.user!;
+  const isGlobalAdminOrManager = user.role === 'Admin/Group Owner' || user.role === 'Manager';
+  const isCreator = board.created_by === user.id;
+  const memberRole = db.getBoardMembership(boardId, user.id);
+  const isBoardAdmin = memberRole === 'Board Admin';
+
+  if (!isGlobalAdminOrManager && !isCreator && !isBoardAdmin) {
+    res.status(403).json({ success: false, error: 'Access denied. Only Admins, Managers, and Board Admins can update board settings.' });
     return;
   }
 
@@ -147,7 +267,12 @@ boardRouter.patch('/:id', requireBoardAccess('Board Admin'), (req: Authenticated
 
   if (title !== undefined) board.title = title.trim();
   if (description !== undefined) board.description = description.trim();
-  if (background_value !== undefined) board.background_value = background_value;
+  if (background_value !== undefined) {
+    board.background_value = background_value;
+    if (!background_value.startsWith('/uploads/') && !background_value.startsWith('http')) {
+      board.background_style = undefined;
+    }
+  }
   if (is_closed !== undefined) {
     board.is_closed = Boolean(is_closed);
     board.closed_at = board.is_closed ? now : null;
@@ -347,7 +472,7 @@ boardRouter.post('/:id/members/new-user', requireBoardAccess('Viewer'), async (r
     return;
   }
 
-  const { name, email, role, board_role } = req.body;
+  const { name, email, role, board_role, password } = req.body;
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     res.status(400).json({ success: false, error: 'Full name is required.' });
@@ -377,7 +502,10 @@ boardRouter.post('/:id/members/new-user', requireBoardAccess('Viewer'), async (r
 
   if (!targetUser) {
     isBrandNewUser = true;
-    const defaultPasswordHash = await hashPassword('Password123!');
+    const initialPassword = password && typeof password === 'string' && password.trim().length >= 6
+      ? password.trim()
+      : 'Password123!';
+    const defaultPasswordHash = await hashPassword(initialPassword);
     const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name.trim())}`;
 
     targetUser = db.createUser({
@@ -417,6 +545,7 @@ boardRouter.post('/:id/members/new-user', requireBoardAccess('Viewer'), async (r
       updated_at: new Date().toISOString(),
     };
     db.boardMembers.set(newMemberId, memberRecord);
+    db.saveToDisk();
   }
 
   // Log activity
@@ -436,7 +565,7 @@ boardRouter.post('/:id/members/new-user', requireBoardAccess('Viewer'), async (r
   });
 
   broadcastActivityLogged(boardId, newMemberLog);
-  broadcastToBoard(boardId, 'members:updated', { member: memberRecord });
+  broadcastToBoard(boardId, 'members:updated', { member: memberRecord, user: toSafeUser(targetUser) });
 
   res.status(201).json({
     success: true,
@@ -649,6 +778,10 @@ boardRouter.post('/cards/new', (req: AuthenticatedRequest, res: Response) => {
     // Real-Time Broadcast (excludes originating socket to prevent duplicate reception)
     broadcastCardCreated(board_id, card, socketId);
 
+    if (card.description) {
+      db.parseAndTriggerMentions(card.description, board_id, card.id, req.user!.id, false);
+    }
+
     const latestLog = db.getActivityLogsForBoard(board_id)[0];
     if (latestLog) {
       broadcastActivityLogged(board_id, latestLog);
@@ -794,7 +927,7 @@ boardRouter.patch('/cards/:id', (req: AuthenticatedRequest, res: Response) => {
   // Update labels if provided
   let labelsChanged = false;
   if (Array.isArray(label_ids)) {
-    const existingLabels = db.getLabelsForCard(cardId).map((l) => l.id).sort();
+    const existingLabels = db.getLabelsForCard(cardId).map((l: any) => l.id).sort();
     const newLabels = [...label_ids].sort();
     if (JSON.stringify(existingLabels) !== JSON.stringify(newLabels)) {
       labelsChanged = true;
@@ -863,13 +996,185 @@ boardRouter.patch('/cards/:id', (req: AuthenticatedRequest, res: Response) => {
     });
 
     broadcastActivityLogged(card.board_id, actLog);
+
+    if (changedFields.length > 0) {
+      db.triggerCardModification(cardId, req.user!.id, `Updated ${changedFields.join(', ')}`);
+    }
+    if (description !== undefined && description.trim() !== oldDesc) {
+      db.parseAndTriggerMentions(description, card.board_id, cardId, req.user!.id, false);
+    }
   }
 
   if (hydrated) {
+    db.saveToDisk();
     broadcastCardUpdated(card.board_id, hydrated);
   }
 
   res.json({ success: true, card: hydrated });
+});
+
+/**
+ * DELETE /api/cards/:id
+ * Permanently removes a card and all associated comments, checklists, and labels.
+ */
+boardRouter.delete('/cards/:id', (req: AuthenticatedRequest, res: Response) => {
+  const cardId = req.params.id;
+  const card = db.cards.get(cardId);
+  if (!card) {
+    res.status(404).json({ success: false, error: 'Card not found.' });
+    return;
+  }
+
+  const memberRole = db.getBoardMembership(card.board_id, req.user!.id);
+  if (!memberRole || memberRole === 'Viewer') {
+    res.status(403).json({ success: false, error: 'Viewers cannot delete cards.' });
+    return;
+  }
+
+  const boardId = card.board_id;
+  const cardTitle = card.title;
+  const result = db.deleteCard(cardId, req.user!.id);
+  if (!result) {
+    res.status(500).json({ success: false, error: 'Failed to delete card.' });
+    return;
+  }
+
+  broadcastCardDeleted(boardId, cardId);
+  const latestLog = db.getActivityLogsForBoard(boardId)[0];
+  if (latestLog) {
+    broadcastActivityLogged(boardId, latestLog);
+  }
+
+  res.json({ success: true, message: `Card "${cardTitle}" deleted.`, cardId, title: cardTitle });
+});
+
+/**
+ * POST /api/cards/:id/images
+ * Uploads up to 5 photos for a card via Multer disk storage.
+ * Only stores string file paths in cards map (e.g. /uploads/filename.webp).
+ */
+boardRouter.post('/cards/:id/images', upload.array('images', 5), (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const cardId = req.params.id;
+    const card = db.cards.get(cardId);
+    if (!card) {
+      res.status(404).json({ success: false, error: 'Card not found.' });
+      return;
+    }
+
+    const memberRole = db.getBoardMembership(card.board_id, req.user!.id);
+    if (!memberRole || memberRole === 'Viewer') {
+      res.status(403).json({ success: false, error: 'Viewers cannot upload photos to cards.' });
+      return;
+    }
+
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      res.status(400).json({ success: false, error: 'No image files provided.' });
+      return;
+    }
+
+    const currentImages = Array.isArray(card.image_paths) ? card.image_paths : [];
+    if (currentImages.length + files.length > 5) {
+      res.status(400).json({
+        success: false,
+        error: `Cannot upload ${files.length} photos. Card already has ${currentImages.length}/5 maximum allowed photos.`,
+      });
+      return;
+    }
+
+    let hydratedCard: Card | null = null;
+    for (const file of files) {
+      const publicPath = `/uploads/${file.filename}`;
+      hydratedCard = db.addCardImage(cardId, publicPath, req.user!.id);
+    }
+
+    if (hydratedCard) {
+      broadcastCardUpdated(card.board_id, hydratedCard);
+      const latestLog = db.getActivityLogsForBoard(card.board_id)[0];
+      if (latestLog) broadcastActivityLogged(card.board_id, latestLog);
+    }
+
+    res.json({
+      success: true,
+      card: hydratedCard,
+      image_paths: hydratedCard?.image_paths || [],
+      message: `Uploaded ${files.length} photo(s) successfully.`,
+    });
+  } catch (err: any) {
+    console.error('Error uploading card images:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to upload photo.' });
+  }
+});
+
+/**
+ * DELETE /api/cards/:id/images
+ * Removes a photo from a card and cleans up the local file.
+ */
+boardRouter.delete('/cards/:id/images', (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const cardId = req.params.id;
+    const { imageIndex, imagePath } = req.body;
+
+    const card = db.cards.get(cardId);
+    if (!card) {
+      res.status(404).json({ success: false, error: 'Card not found.' });
+      return;
+    }
+
+    const memberRole = db.getBoardMembership(card.board_id, req.user!.id);
+    if (!memberRole || memberRole === 'Viewer') {
+      res.status(403).json({ success: false, error: 'Viewers cannot delete photos from cards.' });
+      return;
+    }
+
+    const images = Array.isArray(card.image_paths) ? card.image_paths : [];
+    let resolvedPath: string | undefined = undefined;
+
+    if (typeof imageIndex === 'number' && imageIndex >= 0 && imageIndex < images.length) {
+      resolvedPath = images[imageIndex];
+    } else if (typeof imagePath === 'string') {
+      const matched = images.find((p) => p === imagePath);
+      if (matched) {
+        resolvedPath = matched;
+      }
+    }
+
+    if (!resolvedPath) {
+      res.status(400).json({ success: false, error: 'Valid image attachment not found on this authorized card.' });
+      return;
+    }
+
+    // Attempt to delete physical file if within public uploads
+    if (resolvedPath.startsWith('/uploads/')) {
+      const filename = path.basename(resolvedPath);
+      const fullPath = path.resolve(process.cwd(), 'public', 'uploads', filename);
+      if (fs.existsSync(fullPath)) {
+        try {
+          fs.unlinkSync(fullPath);
+        } catch (e) {
+          console.warn('[Storage] Could not remove physical image file:', e);
+        }
+      }
+    }
+
+    const updatedCard = db.removeCardImage(cardId, resolvedPath, req.user!.id);
+    if (updatedCard) {
+      broadcastCardUpdated(card.board_id, updatedCard);
+      const latestLog = db.getActivityLogsForBoard(card.board_id)[0];
+      if (latestLog) broadcastActivityLogged(card.board_id, latestLog);
+    }
+
+    res.json({
+      success: true,
+      card: updatedCard,
+      image_paths: updatedCard?.image_paths || [],
+      message: 'Photo removed successfully.',
+    });
+  } catch (err: any) {
+    console.error('Error removing card image:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to remove photo.' });
+  }
 });
 
 /**
@@ -982,6 +1287,8 @@ boardRouter.post('/cards/:id/comments', (req: AuthenticatedRequest, res: Respons
     details: { card_title: card.title, preview: comment_text.slice(0, 50) },
   });
 
+  db.parseAndTriggerMentions(comment_text, card.board_id, cardId, req.user!.id, true);
+
   const hydrated = db.getHydratedCard(cardId);
   if (hydrated) broadcastCardUpdated(card.board_id, hydrated);
 
@@ -1025,3 +1332,149 @@ boardRouter.get('/users/directory', (req: AuthenticatedRequest, res: Response) =
 
   res.json({ success: true, users });
 });
+
+function requireAdminOrManager(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const user = req.user!;
+  if (user.role === 'Admin/Group Owner' || user.role === 'Manager') {
+    return next();
+  }
+  const boardId = req.params.boardId;
+  if (boardId) {
+    const role = db.getBoardMembership(boardId, user.id);
+    if (role === 'Board Admin') {
+      return next();
+    }
+  }
+  res.status(403).json({ success: false, error: 'Only administrators and managers can manage board columns.' });
+}
+
+/**
+ * POST /api/boards/:boardId/lists
+ * Creates a new column (list). Admin or Manager only.
+ */
+boardRouter.post('/:boardId/lists', requireBoardAccess('Board Admin'), requireAdminOrManager, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const boardId = req.params.boardId;
+    const { title } = req.body;
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      res.status(400).json({ success: false, error: 'Column title is required.' });
+      return;
+    }
+
+    const list = db.createList({ board_id: boardId, title });
+    broadcastToBoard(boardId, 'board:updated', { board_id: boardId });
+    res.status(201).json({ success: true, list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * PUT /api/boards/:boardId/lists/:listId
+ * Updates column title. Admin or Manager only.
+ */
+boardRouter.put('/:boardId/lists/:listId', requireBoardAccess('Board Admin'), requireAdminOrManager, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { boardId, listId } = req.params;
+    const { title } = req.body;
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      res.status(400).json({ success: false, error: 'Column title is required.' });
+      return;
+    }
+
+    const list = db.updateList(listId, { title });
+    if (!list) {
+      res.status(404).json({ success: false, error: 'List not found.' });
+      return;
+    }
+
+    broadcastToBoard(boardId, 'board:updated', { board_id: boardId });
+    res.json({ success: true, list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/boards/:boardId/lists/:listId
+ * Deletes a column (list). Admin or Manager only.
+ */
+boardRouter.delete('/:boardId/lists/:listId', requireBoardAccess('Board Admin'), requireAdminOrManager, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { boardId, listId } = req.params;
+    const success = db.deleteList(listId);
+    if (!success) {
+      res.status(404).json({ success: false, error: 'List not found.' });
+      return;
+    }
+
+    broadcastToBoard(boardId, 'board:updated', { board_id: boardId });
+    res.json({ success: true, message: 'Column deleted successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+const wallpaperUploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const uploadPath = path.resolve(process.cwd(), 'public', 'uploads');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `wallpaper-${uniqueSuffix}${ext}`);
+  },
+});
+
+const wallpaperUpload = multer({
+  storage: wallpaperUploadStorage,
+  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB max
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png'];
+    if (allowed.includes(file.mimetype.toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PNG and JPG wallpapers under 1MB are permitted.'));
+    }
+  },
+});
+
+/**
+ * POST /api/boards/:boardId/wallpaper
+ * Uploads board wallpaper image (PNG/JPG, max 1MB) with display mode ('cover' or 'repeat').
+ */
+boardRouter.post('/:boardId/wallpaper', requireBoardAccess('Board Admin'), requireAdminOrManager, wallpaperUpload.single('wallpaper'), (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No image file uploaded or file exceeds 1MB limit.' });
+      return;
+    }
+
+    const { boardId } = req.params;
+    const board = db.boards.get(boardId);
+    if (!board) {
+      res.status(404).json({ success: false, error: 'Board not found.' });
+      return;
+    }
+
+    const wallpaperUrl = `/uploads/${req.file.filename}`;
+    const mode = req.body.mode === 'repeat' ? 'repeat' : 'cover';
+
+    board.background_value = wallpaperUrl;
+    (board as any).background_style = mode;
+    board.updated_at = new Date().toISOString();
+    db.boards.set(board.id, board);
+    db.saveToDisk();
+
+    broadcastToBoard(boardId, 'board:updated', { board_id: boardId });
+    res.json({ success: true, board });
+  } catch (error: any) {
+    console.error('Wallpaper upload error:', error);
+    res.status(400).json({ success: false, error: error.message || 'Failed to upload wallpaper. Ensure file is PNG/JPG under 1MB.' });
+  }
+});
+
