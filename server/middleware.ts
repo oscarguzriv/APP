@@ -100,24 +100,7 @@ export function requireBoardAccess(minRole: BoardMemberRole = 'Viewer') {
       return;
     }
 
-    const board = db.boards.get(boardId);
-    if (!board) {
-      res.status(404).json({ success: false, error: 'Board not found.' });
-      return;
-    }
-
-    let memberRole = db.getBoardMembership(boardId, req.user.id);
-    if (!memberRole) {
-      if (board.created_by === req.user.id) {
-        memberRole = 'Board Admin';
-      } else if (req.user.role === 'Admin/Group Owner' || req.user.role === 'Manager') {
-        const creator = db.findUserById(board.created_by);
-        if (creator && creator.company.toLowerCase() === req.user.company.toLowerCase()) {
-          memberRole = 'Board Admin';
-        }
-      }
-    }
-
+    const memberRole = db.getBoardMembership(boardId, req.user.id);
     if (!memberRole) {
       res.status(403).json({
         success: false,

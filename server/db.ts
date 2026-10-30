@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import {
   User,
@@ -13,15 +10,14 @@ import {
   CardComment,
   CardActivityLog,
   NotificationItem,
-  Invitation,
   GlobalUserRole,
   BoardMemberRole,
   CardPriority,
 } from './types.ts';
 
 /**
- * MyShift Database Store
- * Implements persistent JSON storage, full data model relationships, constraints,
+ * PrimeShift Database Store
+ * Implements full PostgreSQL data model relationships, constraints,
  * duplicate email validation, and audit tracking.
  */
 class DatabaseStore {
@@ -36,87 +32,10 @@ class DatabaseStore {
   public cardActivityLogs: CardActivityLog[] = [];
   public cardLabelsMapping: Set<string> = new Set(); // format: `${cardId}:${labelId}`
   public cardWatchers: Set<string> = new Set(); // format: `${cardId}:${userId}`
-  public invitations: Map<string, Invitation> = new Map();
   public notifications: NotificationItem[] = [];
 
-  private dataDir = path.resolve(process.cwd(), 'data');
-  private dbFilePath = path.join(this.dataDir, 'database.json');
-
   constructor() {
-    this.initDatabase();
-  }
-
-  private initDatabase() {
-    try {
-      if (!fs.existsSync(this.dataDir)) {
-        fs.mkdirSync(this.dataDir, { recursive: true });
-      }
-
-      if (fs.existsSync(this.dbFilePath)) {
-        const raw = fs.readFileSync(this.dbFilePath, 'utf-8');
-        const data = JSON.parse(raw);
-        if (data && Array.isArray(data.users) && data.users.length > 0) {
-          this.loadFromData(data);
-          this.ensureAdminTestUser();
-          console.log(`[DB] Restored persistent database with ${this.users.size} users, ${this.boards.size} boards, ${this.cards.size} cards.`);
-          return;
-        }
-      }
-    } catch (err) {
-      console.error('[DB] Failed to restore database from file, re-seeding:', err);
-    }
-
     this.seedInitialData();
-    this.saveToDisk();
-  }
-
-  public saveToDisk() {
-    try {
-      if (!fs.existsSync(this.dataDir)) {
-        fs.mkdirSync(this.dataDir, { recursive: true });
-      }
-      const data = {
-        users: Array.from(this.users.entries()),
-        boards: Array.from(this.boards.entries()),
-        boardMembers: Array.from(this.boardMembers.entries()),
-        boardLabels: Array.from(this.boardLabels.entries()),
-        lists: Array.from(this.lists.entries()),
-        cards: Array.from(this.cards.entries()),
-        cardChecklistItems: Array.from(this.cardChecklistItems.entries()),
-        cardComments: Array.from(this.cardComments.entries()),
-        cardActivityLogs: this.cardActivityLogs,
-        cardLabelsMapping: Array.from(this.cardLabelsMapping),
-        cardWatchers: Array.from(this.cardWatchers),
-        invitations: Array.from(this.invitations.entries()),
-        notifications: this.notifications,
-      };
-      fs.writeFileSync(this.dbFilePath, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('[DB] Failed to save database to disk:', err);
-    }
-  }
-
-  private loadFromData(data: any) {
-    this.users = new Map(data.users || []);
-    this.boards = new Map(data.boards || []);
-    this.boardMembers = new Map(data.boardMembers || []);
-    this.boardLabels = new Map(data.boardLabels || []);
-    this.lists = new Map(data.lists || []);
-    this.cards = new Map(data.cards || []);
-    this.cardChecklistItems = new Map(data.cardChecklistItems || []);
-    this.cardComments = new Map(data.cardComments || []);
-    this.cardActivityLogs = data.cardActivityLogs || [];
-    this.cardLabelsMapping = new Set(data.cardLabelsMapping || []);
-    this.cardWatchers = new Set(data.cardWatchers || []);
-    this.invitations = new Map(data.invitations || []);
-    this.notifications = data.notifications || [];
-
-    // Ensure all loaded cards have image_paths array
-    for (const card of this.cards.values()) {
-      if (!Array.isArray(card.image_paths)) {
-        card.image_paths = [];
-      }
-    }
   }
 
   // Helper to generate UUIDs
@@ -182,7 +101,6 @@ class DatabaseStore {
     };
 
     this.users.set(newUser.id, newUser);
-    this.saveToDisk();
     return newUser;
   }
 
@@ -254,39 +172,6 @@ class DatabaseStore {
     }
 
     return null;
-  }
-
-  public addBoardMember(
-    boardId: string,
-    userId: string,
-    role: BoardMemberRole = 'Member',
-    invitedBy?: string
-  ): BoardMember {
-    for (const m of this.boardMembers.values()) {
-      if (m.board_id === boardId && m.user_id === userId) {
-        m.role = role;
-        m.updated_at = new Date().toISOString();
-        this.boardMembers.set(m.id, m);
-        this.saveToDisk();
-        return m;
-      }
-    }
-
-    const memberId = this.generateId();
-    const now = new Date().toISOString();
-    const member: BoardMember = {
-      id: memberId,
-      board_id: boardId,
-      user_id: userId,
-      role,
-      invited_by: invitedBy,
-      created_at: now,
-      updated_at: now,
-    };
-
-    this.boardMembers.set(memberId, member);
-    this.saveToDisk();
-    return member;
   }
 
   public createBoard(params: {
@@ -382,7 +267,6 @@ class DatabaseStore {
       details: { title: board.title },
     });
 
-    this.saveToDisk();
     return { board, defaultLists: createdLists, labels: createdLabels };
   }
 
@@ -392,172 +276,6 @@ class DatabaseStore {
 
   public getLabelsForBoard(boardId: string): BoardLabel[] {
     return Array.from(this.boardLabels.values()).filter((l) => l.board_id === boardId);
-  }
-
-  public getLabelsForCard(cardId: string): BoardLabel[] {
-    const labels: BoardLabel[] = [];
-    for (const mapping of this.cardLabelsMapping) {
-      const [cId, lId] = mapping.split(':');
-      if (cId === cardId) {
-        const label = this.boardLabels.get(lId);
-        if (label) labels.push(label);
-      }
-    }
-    return labels;
-  }
-
-  public getActivityLogsForBoard(boardId: string): CardActivityLog[] {
-    return this.cardActivityLogs.filter((log) => log.board_id === boardId);
-  }
-
-  public createList(params: { board_id: string; title: string; position?: number; created_by?: string }): List {
-    const listId = this.generateId();
-    const existingLists = Array.from(this.lists.values()).filter(l => l.board_id === params.board_id && !l.is_archived);
-    const position = params.position !== undefined ? params.position : (existingLists.length > 0 ? Math.max(...existingLists.map(l => l.position)) + 1000 : 1000);
-    const now = new Date().toISOString();
-
-    const list: List = {
-      id: listId,
-      board_id: params.board_id,
-      title: params.title.trim() || 'New List',
-      position,
-      is_archived: false,
-      created_by: params.created_by || '',
-      created_at: now,
-      updated_at: now,
-    };
-
-    this.lists.set(listId, list);
-    this.saveToDisk();
-    return list;
-  }
-
-  public updateList(listId: string, params: { title?: string; position?: number }): List | null {
-    const list = this.lists.get(listId);
-    if (!list) return null;
-    const now = new Date().toISOString();
-    if (params.title !== undefined) list.title = params.title.trim();
-    if (params.position !== undefined) list.position = params.position;
-    list.updated_at = now;
-    this.lists.set(listId, list);
-    this.saveToDisk();
-    return list;
-  }
-
-  public deleteList(listId: string): boolean {
-    const list = this.lists.get(listId);
-    if (!list) return false;
-    for (const card of Array.from(this.cards.values())) {
-      if (card.list_id === listId) {
-        this.deleteCard(card.id, list.created_by || 'system');
-      }
-    }
-    const deleted = this.lists.delete(listId);
-    if (deleted) this.saveToDisk();
-    return deleted;
-  }
-
-  public importTrelloBoard(userId: string, trelloData: any): { board: Board; lists: List[]; labels: BoardLabel[] } {
-    const boardName = trelloData.name || 'Imported Trello Board';
-    const boardDesc = trelloData.desc || '';
-    
-    const boardResult = this.createBoard({
-      title: boardName,
-      description: boardDesc,
-      created_by: userId,
-    });
-
-    const boardId = boardResult.board.id;
-
-    for (const defList of boardResult.defaultLists) {
-      this.lists.delete(defList.id);
-    }
-    if (Array.isArray(trelloData.labels) && trelloData.labels.length > 0) {
-      for (const defLbl of boardResult.labels) {
-        this.boardLabels.delete(defLbl.id);
-      }
-    }
-
-    const listMap = new Map<string, string>();
-    if (Array.isArray(trelloData.lists)) {
-      trelloData.lists.forEach((tList: any, idx: number) => {
-        if (tList.closed) return;
-        const created = this.createList({
-          board_id: boardId,
-          title: tList.name || 'List',
-          position: (idx + 1) * 1000,
-        });
-        listMap.set(tList.id, created.id);
-      });
-    }
-
-    if (listMap.size === 0) {
-      const fallback = this.createList({ board_id: boardId, title: 'Tasks', position: 1000 });
-      listMap.set('default', fallback.id);
-    }
-
-    const labelMap = new Map<string, string>();
-    if (Array.isArray(trelloData.labels)) {
-      trelloData.labels.forEach((tLbl: any) => {
-        const colorMap: Record<string, string> = {
-          green: '#10b981',
-          yellow: '#f59e0b',
-          orange: '#f97316',
-          red: '#ef4444',
-          purple: '#8b5cf6',
-          blue: '#3b82f6',
-          sky: '#0ea5e9',
-          lime: '#84cc16',
-          pink: '#ec4899',
-          black: '#1e293b',
-        };
-        const color = colorMap[tLbl.color] || '#3b82f6';
-        const created = this.createBoardLabel({
-          board_id: boardId,
-          name: tLbl.name || tLbl.color || 'Label',
-          color,
-        });
-        labelMap.set(tLbl.id, created.id);
-      });
-    }
-
-    if (Array.isArray(trelloData.cards)) {
-      trelloData.cards.forEach((tCard: any) => {
-        if (tCard.closed) return;
-        const targetListId = listMap.get(tCard.idList) || Array.from(listMap.values())[0];
-        if (!targetListId) return;
-
-        const createdCard = this.createCard({
-          board_id: boardId,
-          list_id: targetListId,
-          title: tCard.name || 'Card',
-          description: tCard.desc || '',
-          priority: 'normal',
-          due_date: tCard.due || null,
-          created_by: userId,
-        });
-
-        if (Array.isArray(tCard.idLabels)) {
-          for (const tLblId of tCard.idLabels) {
-            const myLblId = labelMap.get(tLblId);
-            if (myLblId) {
-              this.cardLabelsMapping.add(`${createdCard.id}:${myLblId}`);
-            }
-          }
-        }
-      });
-    }
-
-    this.saveToDisk();
-
-    const finalLists = Array.from(this.lists.values()).filter(l => l.board_id === boardId && !l.is_archived).sort((a,b) => a.position - b.position);
-    const finalLabels = Array.from(this.boardLabels.values()).filter(l => l.board_id === boardId);
-
-    return {
-      board: boardResult.board,
-      lists: finalLists,
-      labels: finalLabels,
-    };
   }
 
   public createBoardLabel(params: { board_id: string; name: string; color: string }): BoardLabel {
@@ -570,7 +288,6 @@ class DatabaseStore {
       created_at: new Date().toISOString(),
     };
     this.boardLabels.set(labelId, label);
-    this.saveToDisk();
     return label;
   }
 
@@ -580,7 +297,6 @@ class DatabaseStore {
     if (params.name !== undefined) label.name = params.name.trim();
     if (params.color !== undefined) label.color = params.color;
     this.boardLabels.set(labelId, label);
-    this.saveToDisk();
     return label;
   }
 
@@ -592,7 +308,6 @@ class DatabaseStore {
           this.cardLabelsMapping.delete(mapping);
         }
       }
-      this.saveToDisk();
     }
     return exists;
   }
@@ -639,7 +354,6 @@ class DatabaseStore {
       google_event_id: params.google_event_id || null,
       is_archived: false,
       archived_at: null,
-      image_paths: [],
       created_by: params.created_by,
       created_at: now,
       updated_at: now,
@@ -664,7 +378,6 @@ class DatabaseStore {
       details: { title: newCard.title },
     });
 
-    this.saveToDisk();
     return this.getHydratedCard(newCard.id)!;
   }
 
@@ -693,7 +406,6 @@ class DatabaseStore {
       details: { title: card.title, completed_at: card.completed_at },
     });
 
-    this.saveToDisk();
     return this.getHydratedCard(cardId);
   }
 
@@ -708,9 +420,6 @@ class DatabaseStore {
 
     const oldList = this.lists.get(card.list_id);
     const newList = this.lists.get(params.targetListId);
-    if (!newList || newList.board_id !== card.board_id) {
-      throw new Error('Relational Integrity Violation: Target list does not belong to the same board as the card.');
-    }
 
     const oldListTitle = oldList?.title || 'Unknown';
     const newListTitle = newList?.title || 'Unknown';
@@ -741,60 +450,7 @@ class DatabaseStore {
       },
     });
 
-    this.saveToDisk();
     return this.getHydratedCard(card.id);
-  }
-
-  public deleteCard(cardId: string, userId: string): { success: boolean; card: Card } | null {
-    const card = this.cards.get(cardId);
-    if (!card) return null;
-
-    // Delete associated checklist items
-    for (const [key, item] of this.cardChecklistItems.entries()) {
-      if (item.card_id === cardId) {
-        this.cardChecklistItems.delete(key);
-      }
-    }
-
-    // Delete associated comments
-    for (const [key, comment] of this.cardComments.entries()) {
-      if (comment.card_id === cardId) {
-        this.cardComments.delete(key);
-      }
-    }
-
-    // Delete label mappings
-    for (const mapping of Array.from(this.cardLabelsMapping)) {
-      if (mapping.startsWith(`${cardId}:`)) {
-        this.cardLabelsMapping.delete(mapping);
-      }
-    }
-
-    // Delete watchers
-    for (const watcher of Array.from(this.cardWatchers)) {
-      if (watcher.startsWith(`${cardId}:`)) {
-        this.cardWatchers.delete(watcher);
-      }
-    }
-
-    // Remove card
-    this.cards.delete(cardId);
-
-    // Log activity
-    this.logActivity({
-      board_id: card.board_id,
-      card_id: null,
-      user_id: userId,
-      action_type: 'deleted_card',
-      details: {
-        card_id: cardId,
-        title: card.title,
-        summary: `deleted task "${card.title}"`,
-      },
-    });
-
-    this.saveToDisk();
-    return { success: true, card };
   }
 
   // =========================================================================
@@ -824,7 +480,6 @@ class DatabaseStore {
       });
     }
 
-    this.saveToDisk();
     return item;
   }
 
@@ -884,7 +539,6 @@ class DatabaseStore {
 
     return {
       ...card,
-      image_paths: Array.isArray(card.image_paths) ? card.image_paths : [],
       labels,
       watchers,
       checklists,
@@ -915,204 +569,7 @@ class DatabaseStore {
     };
 
     this.cardActivityLogs.unshift(log); // newest first
-    this.saveToDisk();
     return log;
-  }
-
-  // =========================================================================
-  // CARD IMAGES (Strict max 5 local paths in /uploads, no Base64 in JSON)
-  // =========================================================================
-
-  public addCardImage(cardId: string, imagePath: string, userId: string): Card | null {
-    const card = this.cards.get(cardId);
-    if (!card) return null;
-
-    if (!Array.isArray(card.image_paths)) {
-      card.image_paths = [];
-    }
-
-    if (card.image_paths.length >= 5) {
-      throw new Error('Maximum of 5 photos reached for this card.');
-    }
-
-    card.image_paths.push(imagePath);
-    card.updated_at = new Date().toISOString();
-    this.cards.set(cardId, card);
-
-    this.logActivity({
-      board_id: card.board_id,
-      card_id: card.id,
-      user_id: userId,
-      action_type: 'image_uploaded',
-      details: {
-        card_title: card.title,
-        image_path: imagePath,
-        total_images: card.image_paths.length,
-      },
-    });
-
-    this.saveToDisk();
-    return this.getHydratedCard(cardId);
-  }
-
-  public removeCardImage(cardId: string, imagePath: string, userId: string): Card | null {
-    const card = this.cards.get(cardId);
-    if (!card) return null;
-
-    if (!Array.isArray(card.image_paths)) {
-      card.image_paths = [];
-    }
-
-    card.image_paths = card.image_paths.filter((p) => p !== imagePath);
-    card.updated_at = new Date().toISOString();
-    this.cards.set(cardId, card);
-
-    this.logActivity({
-      board_id: card.board_id,
-      card_id: card.id,
-      user_id: userId,
-      action_type: 'image_removed',
-      details: {
-        card_title: card.title,
-        image_path: imagePath,
-        total_images: card.image_paths.length,
-      },
-    });
-
-    this.saveToDisk();
-    return this.getHydratedCard(cardId);
-  }
-
-  // =========================================================================
-  // HOSPITALITY ONBOARDING & QR CODE INVITATIONS
-  // =========================================================================
-
-  public createInvitation(params: {
-    board_id: string;
-    role?: BoardMemberRole;
-    created_by: string;
-    expires_in_hours?: number;
-    max_uses?: number;
-  }): Invitation | null {
-    const board = this.boards.get(params.board_id);
-    if (!board) return null;
-
-    const token = crypto.randomBytes(16).toString('hex');
-    const expiresInHours = params.expires_in_hours || 72; // default 72h
-    const expiresAt = new Date(Date.now() + expiresInHours * 3600 * 1000).toISOString();
-    const id = this.generateId();
-
-    const inviter = this.findUserById(params.created_by);
-
-    const invitation: Invitation = {
-      id,
-      token,
-      board_id: params.board_id,
-      role: params.role || 'Member',
-      created_by: params.created_by,
-      expires_at: expiresAt,
-      is_revoked: false,
-      max_uses: params.max_uses,
-      used_count: 0,
-      created_at: new Date().toISOString(),
-      board_title: board.title,
-      inviter_name: inviter?.name || 'Shift Manager',
-    };
-
-    this.invitations.set(id, invitation);
-    this.saveToDisk();
-    return invitation;
-  }
-
-  public getInvitationByToken(token: string): Invitation | null {
-    for (const inv of this.invitations.values()) {
-      if (inv.token === token) {
-        const board = this.boards.get(inv.board_id);
-        const inviter = this.findUserById(inv.created_by);
-        return {
-          ...inv,
-          board_title: board?.title || 'Hospitality Board',
-          inviter_name: inviter?.name || 'Shift Manager',
-        };
-      }
-    }
-    return null;
-  }
-
-  public getBoardInvitations(boardId: string): Invitation[] {
-    const list: Invitation[] = [];
-    const now = new Date();
-    for (const inv of this.invitations.values()) {
-      if (inv.board_id === boardId && !inv.is_revoked && new Date(inv.expires_at) > now) {
-        list.push(inv);
-      }
-    }
-    return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }
-
-  public revokeInvitation(invitationId: string): boolean {
-    const inv = this.invitations.get(invitationId);
-    if (!inv) return false;
-    inv.is_revoked = true;
-    this.invitations.set(invitationId, inv);
-    this.saveToDisk();
-    return true;
-  }
-
-  public redeemInvitation(token: string, userId: string): { success: boolean; board_id?: string; error?: string } {
-    const inv = this.getInvitationByToken(token);
-    if (!inv) {
-      return { success: false, error: 'Invalid invitation token.' };
-    }
-    if (inv.is_revoked) {
-      return { success: false, error: 'This invitation has been revoked.' };
-    }
-    if (new Date(inv.expires_at) <= new Date()) {
-      return { success: false, error: 'This invitation link has expired.' };
-    }
-    if (inv.max_uses && inv.used_count >= inv.max_uses) {
-      return { success: false, error: 'This invitation has reached its maximum uses.' };
-    }
-
-    // Add user to board if not already member
-    const existingRole = this.getBoardMembership(inv.board_id, userId);
-    if (!existingRole) {
-      this.addBoardMember(inv.board_id, userId, inv.role, inv.created_by);
-    }
-
-    inv.used_count += 1;
-    this.invitations.set(inv.id, inv);
-    this.saveToDisk();
-
-    return { success: true, board_id: inv.board_id };
-  }
-
-  public ensureAdminTestUser() {
-    const adminPasswordHash = bcrypt.hashSync('admin', 10);
-    let admin = this.findUserByEmail('admin@test.com');
-    if (!admin) {
-      const existing = this.findUserByEmail('admin@grandregency.com') || Array.from(this.users.values()).find(u => u.role === 'Admin/Group Owner');
-      if (existing) {
-        existing.email = 'admin@test.com';
-        existing.password_hash = adminPasswordHash;
-        this.users.set(existing.id, existing);
-      } else {
-        admin = this.createUser({
-          id: '11111111-1111-4111-a111-111111111111',
-          name: 'Chef Marcus Vance',
-          email: 'admin@test.com',
-          password_hash: adminPasswordHash,
-          company: 'Grand Regency Hotel & Resort',
-          role: 'Admin/Group Owner',
-          avatar_url: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&auto=format&fit=crop&q=80',
-        });
-      }
-      this.saveToDisk();
-    } else {
-      admin.password_hash = adminPasswordHash;
-      this.users.set(admin.id, admin);
-      this.saveToDisk();
-    }
   }
 
   // =========================================================================
@@ -1121,14 +578,13 @@ class DatabaseStore {
 
   private seedInitialData() {
     const defaultPasswordHash = bcrypt.hashSync('Password123!', 10);
-    const adminPasswordHash = bcrypt.hashSync('admin', 10);
 
-    // 1. Admin/Group Owner (Test Account: admin@test.com / admin)
+    // 1. Admin/Group Owner
     const admin = this.createUser({
       id: '11111111-1111-4111-a111-111111111111',
       name: 'Chef Marcus Vance',
-      email: 'admin@test.com',
-      password_hash: adminPasswordHash,
+      email: 'admin@grandregency.com',
+      password_hash: defaultPasswordHash,
       company: 'Grand Regency Hotel & Resort',
       role: 'Admin/Group Owner',
       avatar_url: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&auto=format&fit=crop&q=80',

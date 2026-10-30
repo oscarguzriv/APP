@@ -1,6 +1,6 @@
 {
-  "name": "RoxCrew - Crew & Task Operations",
-  "description": "Mobile-first crew and task operations platform with role-based access control, real-time board updates, team handoffs, and audit logging.",
+  "name": "PrimeShift - Hospitality Kanban & Shift Operations",
+  "description": "Mobile-first, hospitality-focused Kanban operations platform with role-based access control, real-time board updates, shift handoffs, and audit logging.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

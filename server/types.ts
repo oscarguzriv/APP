@@ -33,7 +33,6 @@ export interface Board {
   title: string;
   description?: string;
   background_value: string;
-  background_style?: 'cover' | 'repeat';
   is_closed: boolean;
   closed_at?: string | null;
   created_by: string;
@@ -110,7 +109,6 @@ export interface Card {
   google_event_id?: string | null;
   is_archived: boolean;
   archived_at?: string | null;
-  image_paths: string[]; // Maximum 5 local file paths in /uploads
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -122,21 +120,6 @@ export interface Card {
   assigned_user?: SafeUser | null;
   created_by_user?: SafeUser | null;
   completed_by_user?: SafeUser | null;
-}
-
-export interface Invitation {
-  id: string;
-  token: string;
-  board_id: string;
-  role: BoardMemberRole;
-  created_by: string;
-  expires_at: string;
-  is_revoked: boolean;
-  max_uses?: number;
-  used_count: number;
-  created_at: string;
-  board_title?: string;
-  inviter_name?: string;
 }
 
 export interface CardActivityLog {
@@ -161,4 +144,3 @@ export interface NotificationItem {
   is_read: boolean;
   created_at: string;
 }
-
